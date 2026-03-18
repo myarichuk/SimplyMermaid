@@ -2,7 +2,12 @@ html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
     margin: 0;
     padding: 0;
+    height: 100%;
     overflow: hidden; /* Prevent scrolling for the full-screen canvas */
+}
+
+#app {
+    height: 100%;
 }
 
 /* Excalidraw-like sketch font */
@@ -45,6 +50,8 @@ html, body {
     background-image: radial-gradient(var(--mud-palette-text-disabled) 1px, transparent 0);
     background-size: 20px 20px;
     background-position: -19px -19px;
+    height: 100vh;
+    width: 100vw;
 }
 
 h1:focus {

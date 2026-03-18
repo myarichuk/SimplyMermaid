@@ -18,13 +18,27 @@ public static class MermaidSerializer
 
         foreach (var edge in graph.Edges)
         {
+            var arrow = edge.LineStyle switch
+            {
+                EdgeLineStyle.Dashed => "-.->",
+                EdgeLineStyle.Dotted => "-.->", // Mermaid uses dashed for both dotted and dashed
+                _ => "-->"
+            };
+
+            var line = edge.LineStyle switch
+            {
+                EdgeLineStyle.Dashed => "-.-",
+                EdgeLineStyle.Dotted => "-.-",
+                _ => "--"
+            };
+
             if (string.IsNullOrWhiteSpace(edge.Label))
             {
-                sb.AppendLine($"    {edge.SourceNodeId} --> {edge.TargetNodeId};");
+                sb.AppendLine($"    {edge.SourceNodeId} {arrow} {edge.TargetNodeId};");
             }
             else
             {
-                sb.AppendLine($"    {edge.SourceNodeId} -- {edge.Label} --> {edge.TargetNodeId};");
+                sb.AppendLine($"    {edge.SourceNodeId} {arrow}|{edge.Label}| {edge.TargetNodeId};");
             }
         }
 
