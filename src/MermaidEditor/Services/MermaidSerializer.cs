@@ -13,7 +13,18 @@ public static class MermaidSerializer
         foreach (var node in graph.Nodes)
         {
             var label = string.IsNullOrWhiteSpace(node.Label) ? node.Id : node.Label;
-            sb.AppendLine($"    {node.Id}[{label}];");
+            var nodeString = node.Type switch
+            {
+                NodeType.Rectangle => $"{node.Id}[{label}]",
+                NodeType.RoundedRectangle => $"{node.Id}({label})",
+                NodeType.Stadium => $"{node.Id}([{label}])",
+                NodeType.Cylinder => $"{node.Id}[({label})]",
+                NodeType.Circle => $"{node.Id}(({label}))",
+                NodeType.Rhombus => $"{node.Id}{{{label}}}",
+                NodeType.Hexagon => $"{node.Id}{{{{{label}}}}}",
+                _ => $"{node.Id}[{label}]"
+            };
+            sb.AppendLine($"    {nodeString};");
         }
 
         foreach (var edge in graph.Edges)
