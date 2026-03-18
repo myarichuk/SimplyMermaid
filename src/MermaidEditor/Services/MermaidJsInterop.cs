@@ -26,6 +26,16 @@ public class MermaidJsInterop : IAsyncDisposable
         await _jsRuntime.InvokeVoidAsync("navigator.clipboard.writeText", text);
     }
 
+    public async ValueTask DownloadTextAsync(string filename, string text)
+    {
+        await _jsRuntime.InvokeVoidAsync("mermaidInterop.downloadText", filename, text);
+    }
+
+    public async ValueTask DownloadSvgAsPngAsync(string containerId, string filename)
+    {
+        await _jsRuntime.InvokeVoidAsync("mermaidInterop.downloadSvgAsPng", containerId, filename);
+    }
+
     public ValueTask DisposeAsync()
     {
         return ValueTask.CompletedTask;
