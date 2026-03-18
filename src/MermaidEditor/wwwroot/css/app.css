@@ -1,5 +1,50 @@
 html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    overflow: hidden; /* Prevent scrolling for the full-screen canvas */
+}
+
+/* Excalidraw-like sketch font */
+.sketch-font {
+    font-family: 'Caveat', cursive;
+}
+
+/* Floating Elements */
+.floating-toolbar {
+    position: absolute;
+    top: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    border-radius: 9999px; /* Pill shape */
+    padding: 0.5rem 1rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    background-color: var(--mud-palette-surface);
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+/* Remove defaults from inline inputs */
+.inline-editor-input {
+    background: transparent;
+    border: none;
+    outline: none;
+    text-align: center;
+    width: 100%;
+    height: 100%;
+    color: var(--mud-palette-text-primary);
+    font-family: 'Caveat', cursive;
+    font-size: 24px;
+}
+
+/* Background dots pattern */
+.canvas-background {
+    background-color: var(--mud-palette-background);
+    background-image: radial-gradient(var(--mud-palette-text-disabled) 1px, transparent 0);
+    background-size: 20px 20px;
+    background-position: -19px -19px;
 }
 
 h1:focus {

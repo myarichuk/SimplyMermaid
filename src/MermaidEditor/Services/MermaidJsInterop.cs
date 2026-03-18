@@ -16,6 +16,16 @@ public class MermaidJsInterop : IAsyncDisposable
         await _jsRuntime.InvokeVoidAsync("mermaidInterop.renderMermaid", containerId, mermaidCode);
     }
 
+    public async ValueTask FocusElementAsync(string elementId)
+    {
+        await _jsRuntime.InvokeVoidAsync("mermaidInterop.focusElement", elementId);
+    }
+
+    public async ValueTask CopyToClipboardAsync(string text)
+    {
+        await _jsRuntime.InvokeVoidAsync("navigator.clipboard.writeText", text);
+    }
+
     public ValueTask DisposeAsync()
     {
         return ValueTask.CompletedTask;

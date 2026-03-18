@@ -1,4 +1,4 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 @inject ILocalStorageService LocalStorage
 
 <MudThemeProvider @ref="@_mudThemeProvider" @bind-IsDarkMode="@_isDarkMode" Theme="_theme" />
@@ -6,25 +6,20 @@
 <MudSnackbarProvider />
 <MudPopoverProvider />
 
-<MudLayout>
-    <MudAppBar Elevation="1">
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
-        <MudText Typo="Typo.h5" Class="ml-3">Mermaid Editor</MudText>
-        <MudSpacer />
-        <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)" Color="Color.Inherit" OnClick="@ToggleDarkMode" />
-    </MudAppBar>
-    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
-        <NavMenu />
-    </MudDrawer>
-    <MudMainContent>
-        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="my-4 pt-4">
-            @Body
-        </MudContainer>
-    </MudMainContent>
-</MudLayout>
+<div class="app-container" style="width: 100vw; height: 100vh; overflow: hidden; position: relative;">
+    <!-- Floating Top-Right Menu -->
+    <div style="position: absolute; top: 1rem; right: 1rem; z-index: 1000;">
+        <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+                       Color="Color.Default"
+                       OnClick="@ToggleDarkMode"
+                       Style="background-color: var(--mud-palette-surface); box-shadow: 0 2px 4px rgba(0,0,0,0.1);" />
+    </div>
+
+    <!-- Main Content (Full Screen Canvas) -->
+    @Body
+</div>
 
 @code {
-    bool _drawerOpen = true;
     private MudThemeProvider _mudThemeProvider = null!;
     private bool _isDarkMode = false;
 
@@ -34,18 +29,17 @@
         {
             Primary = Colors.Blue.Default,
             AppbarBackground = Colors.Blue.Darken2,
+            Surface = Colors.Gray.Lighten5,
+            Background = Colors.Gray.Lighten5,
         },
         PaletteDark = new PaletteDark
         {
             Primary = Colors.Blue.Lighten1,
             AppbarBackground = Colors.Gray.Darken4,
+            Surface = Colors.Gray.Darken4,
+            Background = Colors.Gray.Darken4,
         }
     };
-
-    void DrawerToggle()
-    {
-        _drawerOpen = !_drawerOpen;
-    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
