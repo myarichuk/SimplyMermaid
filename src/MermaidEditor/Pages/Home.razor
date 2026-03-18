@@ -1,7 +1,9 @@
 @page "/"
 @using MermaidEditor.Models
 @using MermaidEditor.Services
+@using Blazored.LocalStorage
 @inject MermaidJsInterop MermaidInterop
+@inject ILocalStorageService LocalStorage
 
 <PageTitle>Mermaid Editor</PageTitle>
 
@@ -11,6 +13,14 @@
     <div class="floating-toolbar">
         <MudIconButton Icon="@Icons.Material.Filled.Add" Color="Color.Primary" OnClick="AddNode" title="Add Node" />
         <MudIconButton Icon="@Icons.Material.Filled.Clear" Color="Color.Error" OnClick="ClearGraph" title="Clear Canvas" />
+        <div style="width: 1px; height: 24px; background-color: var(--mud-palette-divider); margin: 0 8px;"></div>
+        <MudIconButton Icon="@Icons.Material.Filled.Remove" Color="Color.Default" OnClick="ZoomOut" title="Zoom Out" />
+        <div style="width: 100px; display: flex; align-items: center;" class="mx-2">
+            <MudSlider @bind-Value="zoom" Min="0.1" Max="5.0" Step="0.1" title="Zoom Slider" Size="Size.Small" Color="Color.Primary" />
+        </div>
+        <MudText Typo="Typo.body2" Class="mx-2" Style="min-width: 40px;">@(Math.Round(zoom * 100))%</MudText>
+        <MudIconButton Icon="@Icons.Material.Filled.Add" Color="Color.Default" OnClick="ZoomIn" title="Zoom In" />
+        <MudIconButton Icon="@Icons.Material.Filled.FilterCenterFocus" Color="Color.Default" OnClick="ResetZoomPan" title="Reset View" />
         <div style="width: 1px; height: 24px; background-color: var(--mud-palette-divider); margin: 0 8px;"></div>
         <MudIconButton Icon="@Icons.Material.Filled.Download" Color="Color.Info" OnClick="ToggleExportDrawer" title="Export" />
         <div style="width: 1px; height: 24px; background-color: var(--mud-palette-divider); margin: 0 8px;"></div>
@@ -32,10 +42,15 @@
 
     <!-- Full Screen Canvas -->
     <svg class="graph-canvas w-100 h-100"
-         style="cursor: crosshair;"
+         style="cursor: @(isPanning ? "grabbing" : "crosshair");"
          @onmousemove="OnMouseMove"
          @onmouseup="OnMouseUp"
-         @onmouseleave="OnMouseUp">
+         @onmouseleave="OnMouseUp"
+         @onmousedown="OnSvgMouseDown"
+         @onwheel="OnWheel"
+         @onwheel:preventDefault="true">
+
+        <g transform="translate(@panX, @panY) scale(@zoom)">
 
         <!-- Render edges -->
         @foreach (var edge in graph.Edges)
@@ -57,7 +72,26 @@
                 var dy = target.Y - source.Y;
                 var cx = source.X + dx / 2 + (dy * 0.1); // slight offset perpendicular to line
                 var cy = source.Y + dy / 2 - (dx * 0.1);
-                var pathD = $"M {source.X} {source.Y} Q {cx} {cy} {target.X} {target.Y}";
+                double targetXAdjusted = target.X;
+                double targetYAdjusted = target.Y;
+                if (dx != 0 || dy != 0)
+                {
+                    double halfWidth = 60;
+                    double halfHeight = 30;
+                    double absDx = Math.Abs(dx);
+                    double absDy = Math.Abs(dy);
+                    if (absDx * halfHeight > absDy * halfWidth)
+                    {
+                        targetXAdjusted = target.X - Math.Sign(dx) * halfWidth;
+                        targetYAdjusted = target.Y - Math.Sign(dx) * halfWidth * dy / dx;
+                    }
+                    else
+                    {
+                        targetYAdjusted = target.Y - Math.Sign(dy) * halfHeight;
+                        targetXAdjusted = target.X - Math.Sign(dy) * halfHeight * dx / dy;
+                    }
+                }
+                var pathD = $"M {source.X} {source.Y} Q {cx} {cy} {targetXAdjusted} {targetYAdjusted}";
 
                 <g style="cursor: pointer;" @onclick="@(e => OnEdgeClick(edge))" @onclick:stopPropagation="true">
                     <!-- Invisible thick path for easier clicking -->
@@ -96,7 +130,7 @@
                class="graph-node" style="cursor: grab;">
                 <rect x="-60" y="-30" width="120" height="60" rx="10" ry="10"
                       fill="@(node == activeSourceNode ? "var(--mud-palette-primary-lighten)" : "var(--mud-palette-surface)")"
-                      stroke="var(--mud-palette-text-primary)" stroke-width="3" />
+                      stroke="var(--mud-palette-text-primary)" stroke-width="2" filter="url(#wobbly)" />
 
                 @if (editingNodeId != node.Id)
                 {
@@ -127,11 +161,16 @@
             <marker id="arrowhead-selected" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
                 <path d="M 0 0 L 10 5 L 0 10 M 10 5 L 4 5" stroke="var(--mud-palette-primary)" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round" />
             </marker>
+            <filter id="wobbly" x="-10%" y="-10%" width="120%" height="120%">
+                <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="2" result="noise" />
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" xChannelSelector="R" yChannelSelector="G" />
+            </filter>
         </defs>
+        </g>
     </svg>
 
     <!-- Export Drawer -->
-    <MudDrawer @bind-Open="_exportDrawerOpen" Anchor="Anchor.End" Elevation="1" Variant="@DrawerVariant.Temporary" Width="450px" Class="p-8" Style="z-index: 1001;">
+    <MudDrawer @bind-Open="_exportDrawerOpen" Overlay="false" Anchor="Anchor.End" Elevation="1" Variant="@DrawerVariant.Temporary" Width="450px" Class="p-8" Style="z-index: 1001;">
         <MudDrawerHeader Class="px-0 pt-0">
             <MudText Typo="Typo.h5">Export Diagram</MudText>
             <MudSpacer />
@@ -148,7 +187,12 @@
             <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word; color: var(--mud-palette-text-primary);" id="mermaid-source-code"><code>@mermaidCode</code></pre>
         </MudPaper>
 
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="CopyMermaidCodeToClipboard" FullWidth="true">Copy Code</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="CopyMermaidCodeToClipboard" FullWidth="true" Class="mb-2">Copy Code</MudButton>
+        <div class="d-flex justify-space-between mt-2">
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Download" OnClick="DownloadJson">JSON</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Download" OnClick="DownloadMarkdown">MD</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Image" OnClick="DownloadPng">PNG</MudButton>
+        </div>
     </MudDrawer>
 </div>
 
@@ -163,6 +207,96 @@
     private string mermaidCode = "graph TD;";
 
     // State variables for interactions
+
+    // Zoom & Pan State
+    private double zoom = 1.0;
+    private double panX = 0;
+    private double panY = 0;
+    private bool isPanning = false;
+    private double panStartMouseX;
+    private double panStartMouseY;
+    private double panStartX;
+    private double panStartY;
+
+    private async Task DownloadJson()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(graph, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        await MermaidInterop.DownloadTextAsync("diagram.json", json);
+    }
+
+    private async Task DownloadMarkdown()
+    {
+        await MermaidInterop.DownloadTextAsync("diagram.md", mermaidCode);
+    }
+
+    private async Task DownloadPng()
+    {
+        await MermaidInterop.DownloadSvgAsPngAsync("mermaid-preview", "diagram.png");
+    }
+
+    private void OnSvgMouseDown(MouseEventArgs e)
+    {
+        if (e.Button == 0 && !e.ShiftKey && draggingNode == null && !isConnecting)
+        {
+             isPanning = true;
+             panStartMouseX = e.ClientX;
+             panStartMouseY = e.ClientY;
+             panStartX = panX;
+             panStartY = panY;
+        }
+        else if (e.Button == 1) // Middle mouse
+        {
+             isPanning = true;
+             panStartMouseX = e.ClientX;
+             panStartMouseY = e.ClientY;
+             panStartX = panX;
+             panStartY = panY;
+        }
+    }
+
+    private void OnWheel(WheelEventArgs e)
+    {
+        double zoomFactor = 1.1;
+        double oldZoom = zoom;
+
+        if (e.DeltaY < 0) zoom *= zoomFactor;
+        else if (e.DeltaY > 0) zoom /= zoomFactor;
+
+        if (zoom < 0.1) zoom = 0.1;
+        if (zoom > 5.0) zoom = 5.0;
+
+        double mouseX = e.ClientX;
+        double mouseY = e.ClientY;
+
+        panX = mouseX - (mouseX - panX) * (zoom / oldZoom);
+        panY = mouseY - (mouseY - panY) * (zoom / oldZoom);
+    }
+
+    private void ZoomIn()
+    {
+        double oldZoom = zoom;
+        zoom *= 1.2;
+        if (zoom > 5.0) zoom = 5.0;
+        panX = panX * (zoom / oldZoom);
+        panY = panY * (zoom / oldZoom);
+    }
+
+    private void ZoomOut()
+    {
+        double oldZoom = zoom;
+        zoom /= 1.2;
+        if (zoom < 0.1) zoom = 0.1;
+        panX = panX * (zoom / oldZoom);
+        panY = panY * (zoom / oldZoom);
+    }
+
+    private void ResetZoomPan()
+    {
+        zoom = 1.0;
+        panX = 0;
+        panY = 0;
+    }
+
     private MermaidEditor.Models.Edge? selectedEdge;
     private int nodeCounter = 1;
     private Node? draggingNode;
@@ -224,9 +358,23 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Add a default node to start
-        await AddNode();
-        // UpdateMermaidPreviewAsync is called inside AddNode
+        var savedGraph = await LocalStorage.GetItemAsync<Graph>("mermaid_graph");
+        if (savedGraph != null && savedGraph.Nodes.Any())
+        {
+            graph = savedGraph;
+            foreach (var node in graph.Nodes)
+            {
+                if (node.Id.StartsWith("Node") && int.TryParse(node.Id.Substring(4), out int idNum))
+                {
+                    if (idNum >= nodeCounter) nodeCounter = idNum + 1;
+                }
+            }
+            await UpdateMermaidPreviewAsync();
+        }
+        else
+        {
+            await AddNode();
+        }
     }
 
     private async Task AddNode()
@@ -252,6 +400,7 @@
 
     private void OnNodeMouseDown(MouseEventArgs e, Node node)
     {
+        if (e.Button == 1) return;
         if (e.ShiftKey)
         {
             // Start connecting
@@ -264,8 +413,10 @@
         {
             // Start dragging
             draggingNode = node;
-            dragOffsetX = e.ClientX - node.X;
-            dragOffsetY = e.ClientY - node.Y;
+            double localX = (e.ClientX - panX) / zoom;
+            double localY = (e.ClientY - panY) / zoom;
+            dragOffsetX = localX - node.X;
+            dragOffsetY = localY - node.Y;
         }
     }
 
@@ -296,15 +447,22 @@
 
     private void OnMouseMove(MouseEventArgs e)
     {
-        if (draggingNode != null)
+        if (isPanning)
         {
-            draggingNode.X = e.ClientX - dragOffsetX;
-            draggingNode.Y = e.ClientY - dragOffsetY;
+            panX = panStartX + (e.ClientX - panStartMouseX);
+            panY = panStartY + (e.ClientY - panStartMouseY);
+        }
+        else if (draggingNode != null)
+        {
+            double localX = (e.ClientX - panX) / zoom;
+            double localY = (e.ClientY - panY) / zoom;
+            draggingNode.X = localX - dragOffsetX;
+            draggingNode.Y = localY - dragOffsetY;
         }
         else if (isConnecting)
         {
-            mouseX = e.ClientX;
-            mouseY = e.ClientY;
+            mouseX = (e.ClientX - panX) / zoom;
+            mouseY = (e.ClientY - panY) / zoom;
         }
     }
 
@@ -328,6 +486,7 @@
 
     private async Task OnMouseUp(MouseEventArgs e)
     {
+        if (isPanning) isPanning = false;
         if (draggingNode != null)
         {
             draggingNode = null;
@@ -353,5 +512,6 @@
     {
         mermaidCode = MermaidSerializer.Serialize(graph);
         await MermaidInterop.RenderMermaidAsync("mermaid-preview", mermaidCode);
+        await LocalStorage.SetItemAsync("mermaid_graph", graph);
     }
 }

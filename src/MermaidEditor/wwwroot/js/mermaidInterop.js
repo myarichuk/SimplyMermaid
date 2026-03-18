@@ -39,5 +39,62 @@ window.mermaidInterop = {
             element.focus();
             element.select();
         }
+    },
+
+    downloadText: function (filename, text) {
+        const blob = new Blob([text], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    },
+    downloadSvgAsPng: function (svgId, filename) {
+        const containerElement = document.getElementById(svgId);
+        if (!containerElement) return;
+        const svgElement = containerElement.querySelector('svg');
+        if (!svgElement) return;
+
+        let bbox = { x: 0, y: 0, width: 0, height: 0 };
+        try { bbox = svgElement.getBBox(); } catch (e) {}
+
+        const padding = 20;
+        const width = bbox.width + padding * 2;
+        const height = bbox.height + padding * 2;
+        const minX = bbox.x - padding;
+        const minY = bbox.y - padding;
+
+        if (width <= padding * 2 || height <= padding * 2) return;
+
+        const clonedSvg = svgElement.cloneNode(true);
+        clonedSvg.setAttribute('width', width);
+        clonedSvg.setAttribute('height', height);
+        clonedSvg.setAttribute('viewBox', `${minX} ${minY} ${width} ${height}`);
+
+        const svgData = new XMLSerializer().serializeToString(clonedSvg);
+        const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(svgBlob);
+
+        const img = new Image();
+        img.onload = function () {
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+
+            const pngUrl = canvas.toDataURL('image/png');
+            const a = document.createElement('a');
+            a.href = pngUrl;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        };
+        img.src = url;
     }
 };
