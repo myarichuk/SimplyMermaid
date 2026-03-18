@@ -1,0 +1,267 @@
+@page "/"
+@using MermaidEditor.Models
+@using MermaidEditor.Services
+@inject MermaidJsInterop MermaidInterop
+
+<PageTitle>Mermaid Editor</PageTitle>
+
+<div class="editor-container">
+    <div class="toolbar">
+        <button class="btn btn-primary" @onclick="AddNode">Add Node</button>
+        <button class="btn btn-secondary" @onclick="ClearGraph">Clear</button>
+        <div class="instructions">
+            <span>Click and drag a node to move. Shift+Drag from one node to another to connect.</span>
+        </div>
+    </div>
+
+    <div class="canvas-split">
+        <div class="canvas-container">
+            <h3>Visual Canvas</h3>
+            <svg class="graph-canvas"
+                 @onmousemove="OnMouseMove"
+                 @onmouseup="OnMouseUp"
+                 @onmouseleave="OnMouseUp">
+                <!-- Render edges -->
+                @foreach (var edge in graph.Edges)
+                {
+                    var source = graph.Nodes.FirstOrDefault(n => n.Id == edge.SourceNodeId);
+                    var target = graph.Nodes.FirstOrDefault(n => n.Id == edge.TargetNodeId);
+                    if (source != null && target != null)
+                    {
+                        <line x1="@source.X" y1="@source.Y"
+                              x2="@target.X" y2="@target.Y"
+                              stroke="#999" stroke-width="2" marker-end="url(#arrowhead)" />
+                    }
+                }
+
+                <!-- Render active connection line if drawing -->
+                @if (isConnecting && activeSourceNode != null)
+                {
+                    <line x1="@activeSourceNode.X" y1="@activeSourceNode.Y"
+                          x2="@mouseX" y2="@mouseY"
+                          stroke="#007bff" stroke-width="2" stroke-dasharray="5,5" />
+                }
+
+                <!-- Render nodes -->
+                @foreach (var node in graph.Nodes)
+                {
+                    <g transform="translate(@node.X, @node.Y)"
+                       @onmousedown="@(e => OnNodeMouseDown(e, node))"
+                       @onmouseup="@(e => OnNodeMouseUp(e, node))"
+                       class="graph-node">
+                        <circle r="30" fill="@(node == activeSourceNode ? "#cce5ff" : "#fff")" stroke="#007bff" stroke-width="2" />
+                        <text text-anchor="middle" dy=".3em" font-family="Arial" font-size="12">@node.Label</text>
+                    </g>
+                }
+
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="35" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#999" />
+                    </marker>
+                </defs>
+            </svg>
+        </div>
+
+        <div class="preview-container">
+            <h3>Mermaid Preview</h3>
+            <div id="mermaid-preview" class="mermaid-render-area"></div>
+
+            <div class="code-preview mt-3">
+                <h4>Generated Mermaid Code</h4>
+                <pre><code>@mermaidCode</code></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .editor-container {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 100px);
+    }
+
+    .toolbar {
+        padding: 10px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .instructions {
+        margin-left: 20px;
+        color: #6c757d;
+        font-size: 0.9em;
+    }
+
+    .canvas-split {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+    }
+
+    .canvas-container, .preview-container {
+        flex: 1;
+        padding: 15px;
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid #dee2e6;
+    }
+
+    .preview-container {
+        border-right: none;
+        overflow-y: auto;
+    }
+
+    .graph-canvas {
+        flex: 1;
+        width: 100%;
+        border: 1px solid #ccc;
+        background-color: #fcfcfc;
+        cursor: crosshair;
+    }
+
+    .graph-node {
+        cursor: grab;
+    }
+    .graph-node:active {
+        cursor: grabbing;
+    }
+
+    .mermaid-render-area {
+        flex: 1;
+        border: 1px solid #ccc;
+        padding: 10px;
+        background: white;
+        min-height: 300px;
+        overflow: auto;
+    }
+
+    .code-preview pre {
+        background: #f8f9fa;
+        padding: 10px;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+    }
+</style>
+
+@code {
+    private Graph graph = new Graph();
+    private string mermaidCode = "graph TD;";
+
+    // State variables for interactions
+    private int nodeCounter = 1;
+    private Node? draggingNode;
+    private Node? activeSourceNode;
+    private bool isConnecting;
+    private double mouseX;
+    private double mouseY;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Add a default node to start
+        await AddNode();
+        // UpdateMermaidPreviewAsync is called inside AddNode
+    }
+
+    private async Task AddNode()
+    {
+        var id = $"Node{nodeCounter}";
+        graph.Nodes.Add(new Node
+        {
+            Id = id,
+            Label = $"Node {nodeCounter}",
+            X = 100 + (nodeCounter * 20 % 200),
+            Y = 100 + (nodeCounter * 20 % 200)
+        });
+        nodeCounter++;
+        await UpdateMermaidPreviewAsync();
+    }
+
+    private async Task ClearGraph()
+    {
+        graph = new Graph();
+        nodeCounter = 1;
+        await UpdateMermaidPreviewAsync();
+    }
+
+    private void OnNodeMouseDown(MouseEventArgs e, Node node)
+    {
+        if (e.ShiftKey)
+        {
+            // Start connecting
+            isConnecting = true;
+            activeSourceNode = node;
+            mouseX = node.X;
+            mouseY = node.Y;
+        }
+        else
+        {
+            // Start dragging
+            draggingNode = node;
+        }
+    }
+
+    private async Task OnNodeMouseUp(MouseEventArgs e, Node targetNode)
+    {
+        if (isConnecting && activeSourceNode != null && activeSourceNode != targetNode)
+        {
+            // Check if edge already exists
+            bool edgeExists = graph.Edges.Any(ed => ed.SourceNodeId == activeSourceNode.Id && ed.TargetNodeId == targetNode.Id);
+            if (!edgeExists)
+            {
+                graph.Edges.Add(new Edge
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    SourceNodeId = activeSourceNode.Id,
+                    TargetNodeId = targetNode.Id,
+                    Label = ""
+                });
+                await UpdateMermaidPreviewAsync();
+            }
+        }
+
+        // Reset state
+        isConnecting = false;
+        activeSourceNode = null;
+        draggingNode = null;
+    }
+
+    private void OnMouseMove(MouseEventArgs e)
+    {
+        if (draggingNode != null)
+        {
+            // Simple drag logic (offset might need adjustment based on canvas position)
+            draggingNode.X = e.OffsetX;
+            draggingNode.Y = e.OffsetY;
+        }
+        else if (isConnecting)
+        {
+            mouseX = e.OffsetX;
+            mouseY = e.OffsetY;
+        }
+    }
+
+    private async Task OnMouseUp(MouseEventArgs e)
+    {
+        if (draggingNode != null)
+        {
+            draggingNode = null;
+            await UpdateMermaidPreviewAsync();
+        }
+
+        if (isConnecting)
+        {
+            isConnecting = false;
+            activeSourceNode = null;
+        }
+    }
+
+    private async Task UpdateMermaidPreviewAsync()
+    {
+        mermaidCode = MermaidSerializer.Serialize(graph);
+        await MermaidInterop.RenderMermaidAsync("mermaid-preview", mermaidCode);
+    }
+}

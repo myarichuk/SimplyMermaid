@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MermaidEditor/MermaidEditor.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MermaidEditor.Tests/MermaidEditor.Tests.csproj" />
+  </Folder>
+</Solution>
