@@ -1,5 +1,7 @@
 # MermaidEditor
 
+**Note: this is a vibe coding experiment**
+
 A proof-of-concept WYSIWYG Mermaid editor built with .NET 10 Blazor WebAssembly and Mermaid.js.
 
 ## Project Vision
@@ -22,6 +24,16 @@ MermaidEditor aims to bridge the gap between text-based diagram generation and v
    dotnet run
    ```
 4. Open the displayed localhost URL in your browser.
+
+### Docker Deployment
+The project includes a `Dockerfile` to build and serve the application using Nginx.
+
+To build and run via Docker:
+1. Run the build script or use docker build:
+   ```bash
+   ./docker-build.sh
+   ```
+2. Open `http://localhost:8080` in your browser.
 
 ### Features
 - **Add Nodes:** Click "Add Node" to dynamically create elements.
