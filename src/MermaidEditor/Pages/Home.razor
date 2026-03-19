@@ -135,17 +135,43 @@
                 {
                     double halfWidth = target.Width / 2;
                     double halfHeight = target.Height / 2;
-                    double absDx = Math.Abs(dx);
-                    double absDy = Math.Abs(dy);
-                    if (absDx * halfHeight > absDy * halfWidth)
+
+                    if (target.Type == NodeType.Circle)
                     {
-                        targetXAdjusted = target.X - Math.Sign(dx) * halfWidth;
-                        targetYAdjusted = target.Y - Math.Sign(dx) * halfWidth * dy / dx;
+                        double t = 1.0 / Math.Sqrt((dx * dx) / (halfWidth * halfWidth) + (dy * dy) / (halfHeight * halfHeight));
+                        targetXAdjusted = target.X - dx * t;
+                        targetYAdjusted = target.Y - dy * t;
+                    }
+                    else if (target.Type == NodeType.Rhombus)
+                    {
+                        double t = 1.0 / (Math.Abs(dx) / halfWidth + Math.Abs(dy) / halfHeight);
+                        targetXAdjusted = target.X - dx * t;
+                        targetYAdjusted = target.Y - dy * t;
+                    }
+                    else if (target.Type == NodeType.Hexagon)
+                    {
+                        double vx = Math.Abs(dx);
+                        double vy = Math.Abs(dy);
+                        double t1 = 1.0 / (vx / halfWidth + vy / target.Height);
+                        double t2 = vy > 0 ? halfHeight / vy : double.PositiveInfinity;
+                        double t = Math.Min(t1, t2);
+                        targetXAdjusted = target.X - dx * t;
+                        targetYAdjusted = target.Y - dy * t;
                     }
                     else
                     {
-                        targetYAdjusted = target.Y - Math.Sign(dy) * halfHeight;
-                        targetXAdjusted = target.X - Math.Sign(dy) * halfHeight * dx / dy;
+                        double absDx = Math.Abs(dx);
+                        double absDy = Math.Abs(dy);
+                        if (absDx * halfHeight > absDy * halfWidth)
+                        {
+                            targetXAdjusted = target.X - Math.Sign(dx) * halfWidth;
+                            targetYAdjusted = target.Y - Math.Sign(dx) * halfWidth * dy / dx;
+                        }
+                        else
+                        {
+                            targetYAdjusted = target.Y - Math.Sign(dy) * halfHeight;
+                            targetXAdjusted = target.X - Math.Sign(dy) * halfHeight * dx / dy;
+                        }
                     }
                 }
                 var pathD = $"M {source.X} {source.Y} Q {cx} {cy} {targetXAdjusted} {targetYAdjusted}";
@@ -208,6 +234,26 @@
         @foreach (var node in graph.Nodes)
         {
             var isSelectedNode = selectedNode == node;
+
+            double handleX = node.Width / 2;
+            double handleY = node.Height / 2;
+
+            if (node.Type == NodeType.Rhombus)
+            {
+                handleX = node.Width / 4;
+                handleY = node.Height / 4;
+            }
+            else if (node.Type == NodeType.Circle)
+            {
+                handleX = (node.Width / 2) * 0.707106;
+                handleY = (node.Height / 2) * 0.707106;
+            }
+            else if (node.Type == NodeType.Hexagon)
+            {
+                handleX = node.Width / 3;
+                handleY = node.Height / 3;
+            }
+
             <g transform="translate(@node.X, @node.Y)"
                @onmousedown="@(e => OnNodeMouseDown(e, node))"
                @onmouseup="@(e => OnNodeMouseUp(e, node))"
@@ -268,7 +314,7 @@
                 }
 
                 <!-- Resize Handle -->
-                <polygon points="@(node.Width/2 - 10),@(node.Height/2) @(node.Width/2),@(node.Height/2 - 10) @(node.Width/2),@(node.Height/2)"
+                <polygon points="@(handleX - 10),@(handleY) @(handleX),@(handleY - 10) @(handleX),@(handleY)"
                          fill="var(--mud-palette-text-primary)" style="cursor: nwse-resize;"
                          @onmousedown="@(e => OnResizeMouseDown(e, node))" @onmousedown:stopPropagation="true"
                          @ontouchstart="@(e => OnResizeTouchStart(e, node))" @ontouchstart:stopPropagation="true" />
@@ -853,10 +899,28 @@
                 double deltaX = (clientX - resizeStartMouseX) / zoom;
                 double deltaY = (clientY - resizeStartMouseY) / zoom;
 
-                // we're dragging from the bottom right corner (width/2, height/2),
-                // so modifying the width by deltaX*2 ensures the center remains fixed
-                double newWidth = resizeStartWidth + deltaX * 2;
-                double newHeight = resizeStartHeight + deltaY * 2;
+            double multiplierX = 2;
+            double multiplierY = 2;
+
+            if (resizingNode.Type == NodeType.Rhombus)
+            {
+                multiplierX = 4;
+                multiplierY = 4;
+            }
+            else if (resizingNode.Type == NodeType.Circle)
+            {
+                multiplierX = 2.828427; // 2 / 0.707106
+                multiplierY = 2.828427;
+            }
+            else if (resizingNode.Type == NodeType.Hexagon)
+            {
+                multiplierX = 3;
+                multiplierY = 3;
+            }
+
+            // we're dragging from the handle, so modify width and height proportionally to ensure the center remains fixed
+            double newWidth = resizeStartWidth + deltaX * multiplierX;
+            double newHeight = resizeStartHeight + deltaY * multiplierY;
 
                 if (resizingNode.Type == NodeType.Circle)
                 {
