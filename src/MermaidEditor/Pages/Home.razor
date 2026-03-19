@@ -12,6 +12,8 @@
 
     <!-- Sleek Floating Toolbar -->
     <div class="floating-toolbar">
+        <MudIconButton Icon="@Icons.Material.Filled.Mouse" Color="Color.Primary" Variant="Variant.Outlined" title="Select / Lasso (Default)" />
+        <div style="width: 1px; height: 24px; background-color: var(--mud-palette-divider); margin: 0 8px;"></div>
         <MudIconButton Icon="@Icons.Material.Filled.Clear" Color="Color.Error" OnClick="ClearGraph" title="Clear Canvas" />
         <div style="width: 1px; height: 24px; background-color: var(--mud-palette-divider); margin: 0 8px;"></div>
         <MudIconButton Icon="@Icons.Material.Filled.Remove" Color="Color.Default" OnClick="ZoomOut" title="Zoom Out" />
@@ -97,6 +99,7 @@
          @onmouseup="OnMouseUp"
          @onmouseleave="OnMouseUp"
          @onmousedown="OnSvgMouseDown"
+         @onmousedown:preventDefault="true"
          @ontouchstart="OnSvgTouchStart"
          @ontouchmove="OnSvgTouchMove"
          @ontouchend="OnSvgTouchEnd"
@@ -239,10 +242,19 @@
                   stroke="var(--mud-palette-primary)" stroke-width="3" stroke-dasharray="8,8" fill="none" />
         }
 
+        @if (isLassoing)
+        {
+            <rect x="@(Math.Min(lassoStartX, lassoCurrentX))" y="@(Math.Min(lassoStartY, lassoCurrentY))"
+                  width="@(Math.Abs(lassoCurrentX - lassoStartX))" height="@(Math.Abs(lassoCurrentY - lassoStartY))"
+                  fill="var(--mud-palette-primary)" fill-opacity="0.1"
+                  stroke="var(--mud-palette-primary)" stroke-width="2" stroke-dasharray="4,4"
+                  style="pointer-events: none;" />
+        }
+
         <!-- Render nodes -->
         @foreach (var node in graph.Nodes)
         {
-            var isSelectedNode = selectedNode == node;
+            var isSelectedNode = selectedNode == node || selectedNodes.Contains(node);
 
             double handleX = node.Width / 2;
             double handleY = node.Height / 2;
@@ -346,8 +358,12 @@
         </g>
     </svg>
 
+    <div class="position-absolute bottom-0 start-50 translate-middle-x mb-4 text-center" style="z-index: 1000; pointer-events: none;">
+        <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary); background: var(--mud-palette-surface); padding: 4px 8px; border-radius: 4px; opacity: 0.8;">Drag empty space to multi-select nodes • Hold Shift + drag from node to create connection • Right-click node for options</MudText>
+    </div>
+
     <!-- Export Drawer -->
-    <MudDrawer @bind-Open="_exportDrawerOpen" Overlay="false" Anchor="Anchor.End" Elevation="1" Variant="@DrawerVariant.Temporary" Width="450px" Class="p-8" Style="z-index: 1001;">
+    <MudDrawer @bind-Open="_exportDrawerOpen" Anchor="Anchor.End" Elevation="1" Variant="@DrawerVariant.Temporary" Width="450px" Class="p-8" Style="z-index: 1001;" Overlay="false">
         <MudDrawerHeader Class="px-0 pt-0">
             <MudText Typo="Typo.h5">Export Diagram</MudText>
             <MudSpacer />
@@ -361,10 +377,13 @@
 
         <MudText Typo="Typo.subtitle2" Class="mb-2">Mermaid Source</MudText>
         <MudPaper Elevation="0" Class="p-4 mb-6 border-solid mud-border-lines-default rounded" Style="background-color: var(--mud-palette-background-grey); position: relative; font-family: monospace;">
-            <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word; color: var(--mud-palette-text-primary);" id="mermaid-source-code"><code>@mermaidCode</code></pre>
+            <textarea id="mermaid-source-code" @bind="mermaidImportCode" class="w-100 h-100" style="background:transparent; color:inherit; border:none; resize:none;" rows="10"></textarea>
         </MudPaper>
 
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="CopyMermaidCodeToClipboard" FullWidth="true" Class="mb-2">Copy Code</MudButton>
+        <div class="d-flex justify-space-between mb-2 gap-2">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="CopyMermaidCodeToClipboard" FullWidth="true">Copy</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Upload" OnClick="ImportMermaidAsync" FullWidth="true">Import</MudButton>
+        </div>
         <div class="d-flex justify-space-between mt-2">
             <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Download" OnClick="DownloadJson">JSON</MudButton>
             <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Download" OnClick="DownloadMarkdown">MD</MudButton>
@@ -382,6 +401,7 @@
 @code {
     private Graph graph = new Graph();
     private string mermaidCode = "graph TD;";
+    private string mermaidImportCode = "graph TD;";
 
     // State variables for interactions
 
@@ -413,23 +433,41 @@
 
     private void OnSvgMouseDown(MouseEventArgs e)
     {
+        selectedNode = null;
+        selectedEdge = null;
+
         if (e.Button == 0 && !e.ShiftKey && draggingNode == null && !isConnecting)
         {
-             HandleCanvasDown(e.ClientX, e.ClientY);
+             HandleCanvasDown(e.ClientX, e.ClientY, e.CtrlKey || e.MetaKey || e.ShiftKey);
         }
         else if (e.Button == 1) // Middle mouse
         {
-             HandleCanvasDown(e.ClientX, e.ClientY);
+             HandleCanvasDown(e.ClientX, e.ClientY, false, true);
         }
     }
 
-    private void HandleCanvasDown(double clientX, double clientY)
+    private void HandleCanvasDown(double clientX, double clientY, bool keepSelection = false, bool isMiddleClick = false)
     {
-         isPanning = true;
-         panStartMouseX = clientX;
-         panStartMouseY = clientY;
-         panStartX = panX;
-         panStartY = panY;
+        if (isMiddleClick)
+        {
+             isPanning = true;
+             panStartMouseX = clientX;
+             panStartMouseY = clientY;
+             panStartX = panX;
+             panStartY = panY;
+        }
+        else
+        {
+             isLassoing = true;
+             if (!keepSelection)
+             {
+                 selectedNodes.Clear();
+             }
+             lassoStartX = (clientX - panX) / zoom;
+             lassoStartY = (clientY - panY) / zoom;
+             lassoCurrentX = lassoStartX;
+             lassoCurrentY = lassoStartY;
+        }
     }
 
     // Fix for Issue 2: TOUCH / MOBILE
@@ -507,6 +545,13 @@
     private ElementReference containerRef;
     private int nodeCounter = 1;
     private Node? draggingNode;
+    private bool isLassoing = false;
+    private double lassoStartX;
+    private double lassoStartY;
+    private double lassoCurrentX;
+    private double lassoCurrentY;
+    private HashSet<Node> selectedNodes = new HashSet<Node>();
+    private Dictionary<Node, (double offsetX, double offsetY)> dragOffsets = new();
     private double dragOffsetX;
     private double dragOffsetY;
     private Node? activeSourceNode;
@@ -746,7 +791,7 @@
     private void OnNodeMouseDown(MouseEventArgs e, Node node)
     {
         if (e.Button == 1 || e.Button == 2) return; // Ignore middle and right clicks for dragging
-        HandleNodeDown(e.ClientX, e.ClientY, e.ShiftKey, node);
+        HandleNodeDown(e.ClientX, e.ClientY, e.ShiftKey, e.CtrlKey || e.MetaKey, node);
     }
 
     private void OnNodeTouchStart(TouchEventArgs e, Node node)
@@ -756,11 +801,11 @@
             var touch = e.TargetTouches[0];
             // We'll treat long-presses (where we wouldn't normally get shift key) as connecting sometimes,
             // but the prompt mentions "Shift-drag edges" - some virtual keyboards or desktop touch handles shift.
-            HandleNodeDown(touch.ClientX, touch.ClientY, e.ShiftKey, node);
+            HandleNodeDown(touch.ClientX, touch.ClientY, e.ShiftKey, false, node);
         }
     }
 
-    private void HandleNodeDown(double clientX, double clientY, bool shiftKey, Node node)
+    private void HandleNodeDown(double clientX, double clientY, bool shiftKey, bool multiSelectKey, Node node)
     {
         if (shiftKey)
         {
@@ -778,6 +823,28 @@
             double localY = (clientY - panY) / zoom;
             dragOffsetX = localX - node.X;
             dragOffsetY = localY - node.Y;
+
+            if (multiSelectKey)
+            {
+                if (selectedNodes.Contains(node))
+                    selectedNodes.Remove(node);
+                else
+                    selectedNodes.Add(node);
+            }
+            else
+            {
+                if (!selectedNodes.Contains(node))
+                {
+                    selectedNodes.Clear();
+                    selectedNodes.Add(node);
+                }
+            }
+
+            dragOffsets.Clear();
+            foreach (var n in selectedNodes)
+            {
+                dragOffsets[n] = (localX - n.X, localY - n.Y);
+            }
         }
     }
 
@@ -885,18 +952,13 @@
 
     private void HandlePointerMove(double clientX, double clientY)
     {
-        if (selectedNode != null || selectedEdge != null)
+        if (isLassoing)
         {
-            double dist = Math.Sqrt(Math.Pow(clientX - contextMenuX, 2) + Math.Pow(clientY - contextMenuY, 2));
-            if (dist > 200)
-            {
-                selectedNode = null;
-                selectedEdge = null;
-                StateHasChanged();
-            }
+            lassoCurrentX = (clientX - panX) / zoom;
+            lassoCurrentY = (clientY - panY) / zoom;
         }
 
-        if (isPanning || resizingNode != null || draggingNode != null || isConnecting)
+        if (isPanning || isLassoing || resizingNode != null || draggingNode != null || isConnecting)
         {
             if (isPanning)
             {
@@ -948,8 +1010,23 @@
             {
                 double localX = (clientX - panX) / zoom;
                 double localY = (clientY - panY) / zoom;
-                draggingNode.X = localX - dragOffsetX;
-                draggingNode.Y = localY - dragOffsetY;
+
+                if (selectedNodes.Contains(draggingNode))
+                {
+                    foreach (var n in selectedNodes)
+                    {
+                        if (dragOffsets.TryGetValue(n, out var offset))
+                        {
+                            n.X = localX - offset.offsetX;
+                            n.Y = localY - offset.offsetY;
+                        }
+                    }
+                }
+                else
+                {
+                    draggingNode.X = localX - dragOffsetX;
+                    draggingNode.Y = localY - dragOffsetY;
+                }
             }
             else if (isConnecting)
             {
@@ -982,6 +1059,15 @@
 
     private async Task OnKeyDown(KeyboardEventArgs e)
     {
+        if (e.Key == "Escape")
+        {
+            selectedNode = null;
+            selectedEdge = null;
+            selectedNodes.Clear();
+            StateHasChanged();
+            return;
+        }
+
         if (e.Key == "Delete" || e.Key == "Backspace")
         {
             bool updated = false;
@@ -1026,6 +1112,25 @@
     private async Task HandlePointerUp()
     {
         if (isPanning) isPanning = false;
+
+        if (isLassoing)
+        {
+            isLassoing = false;
+            double minX = Math.Min(lassoStartX, lassoCurrentX);
+            double maxX = Math.Max(lassoStartX, lassoCurrentX);
+            double minY = Math.Min(lassoStartY, lassoCurrentY);
+            double maxY = Math.Max(lassoStartY, lassoCurrentY);
+
+            foreach (var node in graph.Nodes)
+            {
+                // Simple point check for selection (or bounding box if desired)
+                if (node.X >= minX && node.X <= maxX && node.Y >= minY && node.Y <= maxY)
+                {
+                    selectedNodes.Add(node);
+                }
+            }
+            await UpdateMermaidPreviewAsync();
+        }
 
         if (resizingNode != null)
         {
@@ -1077,6 +1182,7 @@
             try
             {
                 mermaidCode = MermaidSerializer.Serialize(graph);
+                mermaidImportCode = mermaidCode;
                 await MermaidInterop.RenderMermaidAsync("mermaid-preview", mermaidCode);
                 await LocalStorage.SetItemAsync("mermaid_graph", graph);
             }
@@ -1091,5 +1197,122 @@
     private async Task UpdateMermaidPreviewAsync()
     {
         await QueueRender(true);
+    }
+
+    private async Task ImportMermaidAsync()
+    {
+        if (string.IsNullOrWhiteSpace(mermaidImportCode)) return;
+
+        try
+        {
+            var lines = mermaidImportCode.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            var newGraph = new Graph();
+            var nodesMap = new Dictionary<string, Node>();
+            Dictionary<string, double[]> positions = null;
+
+            // Temporary simple parsing
+            var nodeRegex = new System.Text.RegularExpressions.Regex(@"^\s*([A-Za-z0-9_-]+)(?:\[|\(|\{)(.*?)(?:\]|\)|\})");
+            var edgeRegex = new System.Text.RegularExpressions.Regex(@"^\s*([A-Za-z0-9_-]+)\s*-+>?\s*(?:\|(.*?)\|)?\s*([A-Za-z0-9_-]+)");
+
+            foreach (var line in lines)
+            {
+                if (line.StartsWith("%% SimplyMermaidPositions:"))
+                {
+                    var jsonStr = line.Substring("%% SimplyMermaidPositions:".Length).Trim();
+                    positions = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, double[]>>(jsonStr);
+                    continue;
+                }
+
+                // Process edges first because they might not have explicitly defined nodes in basic Mermaid
+                var edgeMatch = edgeRegex.Match(line);
+                if (edgeMatch.Success)
+                {
+                    var sourceId = edgeMatch.Groups[1].Value;
+                    var label = edgeMatch.Groups[2].Value.Replace("&quot;", "\"").Replace("<br/>", "\n").Replace("&lt;", "<").Replace("&gt;", ">").Replace("#35;", "#").Replace("#58;", ":").Replace("#59;", ";").Trim('"');
+                    var targetId = edgeMatch.Groups[3].Value;
+
+                    newGraph.Edges.Add(new MermaidEditor.Models.Edge
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        SourceNodeId = sourceId,
+                        TargetNodeId = targetId,
+                        Label = string.IsNullOrWhiteSpace(label) ? "" : label,
+                        LineStyle = line.Contains("-.-") ? EdgeLineStyle.Dashed : EdgeLineStyle.Solid // Simplify for now
+                    });
+
+                    if (!nodesMap.ContainsKey(sourceId)) nodesMap[sourceId] = new Node { Id = sourceId, Label = sourceId };
+                    if (!nodesMap.ContainsKey(targetId)) nodesMap[targetId] = new Node { Id = targetId, Label = targetId };
+                    continue;
+                }
+
+                var nodeMatch = nodeRegex.Match(line);
+                if (nodeMatch.Success)
+                {
+                    var nodeId = nodeMatch.Groups[1].Value;
+                    var label = nodeMatch.Groups[2].Value.Replace("&quot;", "\"").Replace("<br/>", "\n").Replace("&lt;", "<").Replace("&gt;", ">").Replace("#35;", "#").Replace("#58;", ":").Replace("#59;", ";").Trim('"');
+
+                    NodeType type = NodeType.Rectangle;
+                    if (line.Contains($"(({nodeMatch.Groups[2].Value}))")) type = NodeType.Circle;
+                    else if (line.Contains($"([{nodeMatch.Groups[2].Value}])")) type = NodeType.Stadium;
+                    else if (line.Contains($"[({nodeMatch.Groups[2].Value})]")) type = NodeType.Cylinder;
+                    else if (line.Contains($"({nodeMatch.Groups[2].Value})")) type = NodeType.RoundedRectangle;
+                    else if (line.Contains($"{{{{{nodeMatch.Groups[2].Value}}}}}")) type = NodeType.Hexagon;
+                    else if (line.Contains($"{{{nodeMatch.Groups[2].Value}}}")) type = NodeType.Rhombus;
+
+                    if (nodesMap.TryGetValue(nodeId, out var existingNode))
+                    {
+                        existingNode.Label = label;
+                        existingNode.Type = type;
+                        if (type == NodeType.Circle) { existingNode.Width = 80; existingNode.Height = 80; }
+                    }
+                    else
+                    {
+                        nodesMap[nodeId] = new Node
+                        {
+                            Id = nodeId,
+                            Label = label,
+                            Type = type,
+                            Width = type == NodeType.Circle ? 80 : 120,
+                            Height = type == NodeType.Circle ? 80 : 60
+                        };
+                    }
+                }
+            }
+
+            // Restore precise positions if available
+            int xOffset = 0;
+            int yOffset = 0;
+            foreach (var kvp in nodesMap)
+            {
+                var node = kvp.Value;
+                if (positions != null && positions.TryGetValue(node.Id, out var pos))
+                {
+                    node.X = pos[0];
+                    node.Y = pos[1];
+                }
+                else
+                {
+                    // Fallback positioning if no comment
+                    node.X = 100 + xOffset;
+                    node.Y = 100 + yOffset;
+                    xOffset += 150;
+                    if (xOffset > 600) { xOffset = 0; yOffset += 100; }
+                }
+                newGraph.Nodes.Add(node);
+            }
+
+            if (newGraph.Nodes.Any())
+            {
+                graph = newGraph;
+                selectedNode = null;
+                selectedEdge = null;
+                selectedNodes.Clear();
+                await UpdateMermaidPreviewAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Import failed: {ex.Message}");
+        }
     }
 }

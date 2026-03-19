@@ -11,20 +11,20 @@ public class MermaidSerializerTests
     {
         var graph = new Graph();
         var result = MermaidSerializer.Serialize(graph);
-        Assert.Equal("graph TD;\n", result.Replace("\r\n", "\n"));
+        Assert.Equal("graph TD;\n\n%% SimplyMermaidPositions: {}\n", result.Replace("\r\n", "\n"));
     }
 
     [Fact]
     public void Serialize_WithNodesAndEdges_ReturnsCorrectString()
     {
         var graph = new Graph();
-        graph.Nodes.Add(new Node { Id = "A", Label = "Start" });
-        graph.Nodes.Add(new Node { Id = "B", Label = "End" });
+        graph.Nodes.Add(new Node { Id = "A", Label = "Start", X = 0, Y = 0 });
+        graph.Nodes.Add(new Node { Id = "B", Label = "End", X = 0, Y = 0 });
         graph.Edges.Add(new Edge { Id = "1", SourceNodeId = "A", TargetNodeId = "B", Label = "Go" });
 
         var result = MermaidSerializer.Serialize(graph);
 
-        var expected = "graph TD;\n    A[\"Start\"];\n    B[\"End\"];\n    A -->|\"Go\"| B;\n";
+        var expected = "graph TD;\n    A[\"Start\"];\n    B[\"End\"];\n    A -->|\"Go\"| B;\n\n%% SimplyMermaidPositions: {\"A\":[0,0],\"B\":[0,0]}\n";
         Assert.Equal(expected, result.Replace("\r\n", "\n"));
     }
 }
