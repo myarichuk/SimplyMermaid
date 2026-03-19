@@ -24,7 +24,7 @@ public class MermaidSerializerTests
 
         var result = MermaidSerializer.Serialize(graph);
 
-        var expected = "graph TD;\n    A[Start];\n    B[End];\n    A -->|Go| B;\n";
+        var expected = "graph TD;\n    A[\"Start\"];\n    B[\"End\"];\n    A -->|\"Go\"| B;\n";
         Assert.Equal(expected, result.Replace("\r\n", "\n"));
     }
 }
