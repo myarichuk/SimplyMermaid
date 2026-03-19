@@ -1,7 +1,6 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/MermaidEditor/MermaidEditor.csproj" />
-    <Project Path="src/MermaidEditor.Maui/MermaidEditor.Maui.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/MermaidEditor.Tests/MermaidEditor.Tests.csproj" />
