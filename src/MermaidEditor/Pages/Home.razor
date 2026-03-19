@@ -7,7 +7,8 @@
 
 <PageTitle>Mermaid Editor</PageTitle>
 
-<div class="editor-container canvas-background sketch-font w-100 h-100 position-relative">
+    <div class="editor-container canvas-background sketch-font w-100 h-100 position-relative" @onkeydown="OnKeyDown" tabindex="0" @ref="containerRef"
+         @ondragover:preventDefault="true" @ondrop="OnCanvasDrop">
 
     <!-- Sleek Floating Toolbar -->
     <div class="floating-toolbar">
@@ -30,37 +31,62 @@
 
     <!-- Left Toolbar for Nodes -->
     <div class="floating-toolbar-left">
-        <MudIconButton OnClick="@(() => AddNode(NodeType.Rectangle))" title="Rectangle">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="6" width="18" height="12"></rect></svg>
-        </MudIconButton>
-        <MudIconButton OnClick="@(() => AddNode(NodeType.RoundedRectangle))" title="Rounded Rectangle">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="6" width="18" height="12" rx="4"></rect></svg>
-        </MudIconButton>
-        <MudIconButton OnClick="@(() => AddNode(NodeType.Stadium))" title="Stadium">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="6" width="18" height="12" rx="6"></rect></svg>
-        </MudIconButton>
-        <MudIconButton OnClick="@(() => AddNode(NodeType.Cylinder))" title="Cylinder">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><path d="M4 8c0-2.2 3.6-4 8-4s8 1.8 8 4v8c0 2.2-3.6 4-8 4s-8-1.8-8-4V8z"></path><path d="M4 8c0 2.2 3.6 4 8 4s8-1.8 8-4"></path></svg>
-        </MudIconButton>
-        <MudIconButton OnClick="@(() => AddNode(NodeType.Circle))" title="Circle">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="8"></circle></svg>
-        </MudIconButton>
-        <MudIconButton OnClick="@(() => AddNode(NodeType.Rhombus))" title="Rhombus">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><polygon points="12 3 21 12 12 21 3 12 12 3"></polygon></svg>
-        </MudIconButton>
-        <MudIconButton OnClick="@(() => AddNode(NodeType.Hexagon))" title="Hexagon">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><polygon points="12 2 21 7 21 17 12 22 3 17 3 7 12 2"></polygon></svg>
-        </MudIconButton>
+        <div draggable="true" @ondragstart="@(e => OnDragStartShape(NodeType.Rectangle))" style="cursor: grab;">
+            <MudIconButton OnClick="@(() => AddNode(NodeType.Rectangle))" title="Rectangle">
+                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" style="pointer-events: none;"><rect x="3" y="6" width="18" height="12"></rect></svg>
+            </MudIconButton>
+        </div>
+        <div draggable="true" @ondragstart="@(e => OnDragStartShape(NodeType.RoundedRectangle))" style="cursor: grab;">
+            <MudIconButton OnClick="@(() => AddNode(NodeType.RoundedRectangle))" title="Rounded Rectangle">
+                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" style="pointer-events: none;"><rect x="3" y="6" width="18" height="12" rx="4"></rect></svg>
+            </MudIconButton>
+        </div>
+        <div draggable="true" @ondragstart="@(e => OnDragStartShape(NodeType.Stadium))" style="cursor: grab;">
+            <MudIconButton OnClick="@(() => AddNode(NodeType.Stadium))" title="Stadium">
+                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" style="pointer-events: none;"><rect x="3" y="6" width="18" height="12" rx="6"></rect></svg>
+            </MudIconButton>
+        </div>
+        <div draggable="true" @ondragstart="@(e => OnDragStartShape(NodeType.Cylinder))" style="cursor: grab;">
+            <MudIconButton OnClick="@(() => AddNode(NodeType.Cylinder))" title="Cylinder">
+                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" style="pointer-events: none;"><path d="M4 8c0-2.2 3.6-4 8-4s8 1.8 8 4v8c0 2.2-3.6 4-8 4s-8-1.8-8-4V8z"></path><path d="M4 8c0 2.2 3.6 4 8 4s8-1.8 8-4"></path></svg>
+            </MudIconButton>
+        </div>
+        <div draggable="true" @ondragstart="@(e => OnDragStartShape(NodeType.Circle))" style="cursor: grab;">
+            <MudIconButton OnClick="@(() => AddNode(NodeType.Circle))" title="Circle">
+                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" style="pointer-events: none;"><circle cx="12" cy="12" r="8"></circle></svg>
+            </MudIconButton>
+        </div>
+        <div draggable="true" @ondragstart="@(e => OnDragStartShape(NodeType.Rhombus))" style="cursor: grab;">
+            <MudIconButton OnClick="@(() => AddNode(NodeType.Rhombus))" title="Rhombus">
+                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" style="pointer-events: none;"><polygon points="12 3 21 12 12 21 3 12 12 3"></polygon></svg>
+            </MudIconButton>
+        </div>
+        <div draggable="true" @ondragstart="@(e => OnDragStartShape(NodeType.Hexagon))" style="cursor: grab;">
+            <MudIconButton OnClick="@(() => AddNode(NodeType.Hexagon))" title="Hexagon">
+                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" style="pointer-events: none;"><polygon points="12 2 21 7 21 17 12 22 3 17 3 7 12 2"></polygon></svg>
+            </MudIconButton>
+        </div>
     </div>
 
-    @if (selectedEdge != null)
+    @if (selectedEdge != null && editingEdgeId == null)
     {
-        <div class="floating-toolbar" style="top: @(edgeClickY)px; left: @(edgeClickX)px; transform: translate(-50%, -100%); margin-top: -10px;">
+        <div class="floating-toolbar" style="top: @(edgeClickY)px; left: @(edgeClickX)px; transform: translate(-50%, -100%); margin-top: -10px; z-index: 1000;" @onmousedown:stopPropagation="true">
             <MudIconButton Icon="@Icons.Material.Filled.HorizontalRule" Color="@(selectedEdge.LineStyle == EdgeLineStyle.Solid ? Color.Primary : Color.Default)" OnClick="@(() => SetEdgeStyle(selectedEdge, EdgeLineStyle.Solid))" title="Solid Line" />
             <MudIconButton Icon="@Icons.Material.Filled.MoreHoriz" Color="@(selectedEdge.LineStyle == EdgeLineStyle.Dashed ? Color.Primary : Color.Default)" OnClick="@(() => SetEdgeStyle(selectedEdge, EdgeLineStyle.Dashed))" title="Dashed Line" />
             <MudIconButton Icon="@Icons.Material.Filled.LensBlur" Color="@(selectedEdge.LineStyle == EdgeLineStyle.Dotted ? Color.Primary : Color.Default)" OnClick="@(() => SetEdgeStyle(selectedEdge, EdgeLineStyle.Dotted))" title="Dotted Line" />
             <div style="width: 1px; height: 24px; background-color: var(--mud-palette-divider); margin: 0 8px;"></div>
+            <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" OnClick="@(() => EditEdge(selectedEdge))" title="Edit Label" />
+            <div style="width: 1px; height: 24px; background-color: var(--mud-palette-divider); margin: 0 8px;"></div>
             <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => DeleteEdge(selectedEdge))" title="Delete Edge" />
+        </div>
+    }
+
+    @if (selectedNode != null && editingNodeId == null)
+    {
+        <div class="floating-toolbar" style="top: @(nodeClickY)px; left: @(nodeClickX)px; transform: translate(-50%, -100%); margin-top: -10px; z-index: 1000;" @onmousedown:stopPropagation="true">
+            <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" OnClick="@(() => EditNode(selectedNode))" title="Edit Label" />
+            <div style="width: 1px; height: 24px; background-color: var(--mud-palette-divider); margin: 0 8px;"></div>
+            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => DeleteNode(selectedNode))" title="Delete Node" />
         </div>
     }
 
@@ -100,8 +126,8 @@
                 double targetYAdjusted = target.Y;
                 if (dx != 0 || dy != 0)
                 {
-                    double halfWidth = 60;
-                    double halfHeight = 30;
+                    double halfWidth = target.Width / 2;
+                    double halfHeight = target.Height / 2;
                     double absDx = Math.Abs(dx);
                     double absDy = Math.Abs(dy);
                     if (absDx * halfHeight > absDy * halfWidth)
@@ -117,7 +143,14 @@
                 }
                 var pathD = $"M {source.X} {source.Y} Q {cx} {cy} {targetXAdjusted} {targetYAdjusted}";
 
-                <g style="cursor: pointer;" @onclick="@(e => OnEdgeClick(e, edge))" @onclick:stopPropagation="true">
+                // Text positioning logic
+                // Simple quadratic bezier curve midpoint formula:
+                // B(t) = (1-t)^2 P0 + 2(1-t)t P1 + t^2 P2
+                // At t=0.5: B(0.5) = 0.25 P0 + 0.5 P1 + 0.25 P2
+                double midX = 0.25 * source.X + 0.5 * cx + 0.25 * targetXAdjusted;
+                double midY = 0.25 * source.Y + 0.5 * cy + 0.25 * targetYAdjusted;
+
+                <g style="cursor: pointer;" @onclick="@(e => OnEdgeClick(e, edge))" @ondblclick="@(() => EditEdge(edge))" @onclick:stopPropagation="true">
                     <!-- Invisible thick path for easier clicking -->
                     <path d="@pathD" stroke="transparent" stroke-width="20" fill="none" />
                     <!-- Visible path -->
@@ -127,6 +160,26 @@
                           stroke-dasharray="@dashArray"
                           fill="none"
                           marker-end="url(#arrowhead@(isSelected ? "-selected" : ""))" />
+
+                    @if (!string.IsNullOrEmpty(edge.Label) && editingEdgeId != edge.Id)
+                    {
+                        <rect x="@(midX - edge.Label.Length * 4 - 8)" y="@(midY - 12)" width="@(edge.Label.Length * 8 + 16)" height="24" fill="var(--mud-palette-surface)" stroke="var(--mud-palette-text-primary)" stroke-width="1" rx="4" ry="4" style="pointer-events: none;" />
+                        <svg:text x="@midX" y="@(midY + 5)" text-anchor="middle" class="sketch-font" font-size="14" fill="var(--mud-palette-text-primary)" style="pointer-events: none;">@edge.Label</svg:text>
+                    }
+                    @if (editingEdgeId == edge.Id)
+                    {
+                        <foreignObject x="@(midX - 55)" y="@(midY - 20)" width="110" height="40" @onmousedown:stopPropagation="true" @ondblclick:stopPropagation="true">
+                            <div xmlns="http://www.w3.org/1999/xhtml" style="width: 100%; height: 100%;">
+                                <input id="edge-editor-@edge.Id"
+                                       type="text"
+                                       class="inline-editor-input"
+                                       @bind="editingEdgeText"
+                                       @bind:event="oninput"
+                                       @onblur="CommitEdgeEdit"
+                                       @onkeydown="OnEditorKeyDown" />
+                            </div>
+                        </foreignObject>
+                    }
                 </g>
             }
         }
@@ -147,6 +200,7 @@
         <!-- Render nodes -->
         @foreach (var node in graph.Nodes)
         {
+            var isSelectedNode = selectedNode == node;
             <g transform="translate(@node.X, @node.Y)"
                @onmousedown="@(e => OnNodeMouseDown(e, node))"
                @onmouseup="@(e => OnNodeMouseUp(e, node))"
@@ -158,26 +212,26 @@
                     double rx = node.Type == NodeType.Rectangle ? 0 : node.Type == NodeType.RoundedRectangle ? 10 : node.Height / 2;
                     <rect x="@(-node.Width/2)" y="@(-node.Height/2)" width="@node.Width" height="@node.Height" rx="@rx" ry="@rx"
                           fill="@(node == activeSourceNode ? "var(--mud-palette-primary-lighten)" : "var(--mud-palette-surface)")"
-                          stroke="var(--mud-palette-text-primary)" stroke-width="2" filter="url(#wobbly)" />
+                          stroke="@(isSelectedNode ? "var(--mud-palette-primary)" : "var(--mud-palette-text-primary)")" stroke-width="@(isSelectedNode ? "4" : "2")" filter="url(#wobbly)" />
                 }
                 else if (node.Type == NodeType.Cylinder)
                 {
                     <path d="M @(-node.Width/2) @(-node.Height/2 + 10) C @(-node.Width/2) @(-node.Height/2 - 10), @(node.Width/2) @(-node.Height/2 - 10), @(node.Width/2) @(-node.Height/2 + 10) L @(node.Width/2) @(node.Height/2 - 10) C @(node.Width/2) @(node.Height/2 + 10), @(-node.Width/2) @(node.Height/2 + 10), @(-node.Width/2) @(node.Height/2 - 10) Z M @(-node.Width/2) @(-node.Height/2 + 10) C @(-node.Width/2) @(-node.Height/2 + 30), @(node.Width/2) @(-node.Height/2 + 30), @(node.Width/2) @(-node.Height/2 + 10)"
                           fill="@(node == activeSourceNode ? "var(--mud-palette-primary-lighten)" : "var(--mud-palette-surface)")"
-                          stroke="var(--mud-palette-text-primary)" stroke-width="2" filter="url(#wobbly)" />
+                          stroke="@(isSelectedNode ? "var(--mud-palette-primary)" : "var(--mud-palette-text-primary)")" stroke-width="@(isSelectedNode ? "4" : "2")" filter="url(#wobbly)" />
                 }
                 else if (node.Type == NodeType.Circle)
                 {
                     <ellipse cx="0" cy="0" rx="@(node.Width/2)" ry="@(node.Height/2)"
                              fill="@(node == activeSourceNode ? "var(--mud-palette-primary-lighten)" : "var(--mud-palette-surface)")"
-                             stroke="var(--mud-palette-text-primary)" stroke-width="2" filter="url(#wobbly)" />
+                             stroke="@(isSelectedNode ? "var(--mud-palette-primary)" : "var(--mud-palette-text-primary)")" stroke-width="@(isSelectedNode ? "4" : "2")" filter="url(#wobbly)" />
                 }
                 else if (node.Type == NodeType.Rhombus || node.Type == NodeType.Hexagon)
                 {
                     string points = node.Type == NodeType.Rhombus ? $"0,{-node.Height/2} {node.Width/2},0 0,{node.Height/2} {-node.Width/2},0" : $"{node.Width/4},{-node.Height/2} {node.Width/2},0 {node.Width/4},{node.Height/2} {-node.Width/4},{node.Height/2} {-node.Width/2},0 {-node.Width/4},{-node.Height/2}";
                     <polygon points="@points"
                              fill="@(node == activeSourceNode ? "var(--mud-palette-primary-lighten)" : "var(--mud-palette-surface)")"
-                             stroke="var(--mud-palette-text-primary)" stroke-width="2" filter="url(#wobbly)" />
+                             stroke="@(isSelectedNode ? "var(--mud-palette-primary)" : "var(--mud-palette-text-primary)")" stroke-width="@(isSelectedNode ? "4" : "2")" filter="url(#wobbly)" />
                 }
 
                 @if (editingNodeId != node.Id)
@@ -353,6 +407,10 @@
     private MermaidEditor.Models.Edge? selectedEdge;
     private double edgeClickX;
     private double edgeClickY;
+    private Node? selectedNode;
+    private double nodeClickX;
+    private double nodeClickY;
+    private ElementReference containerRef;
     private int nodeCounter = 1;
     private Node? draggingNode;
     private double dragOffsetX;
@@ -373,6 +431,8 @@
     // Inline Editing State
     private string? editingNodeId;
     private string editingNodeText = string.Empty;
+    private string? editingEdgeId;
+    private string editingEdgeText = string.Empty;
 
     private void ToggleExportDrawer()
     {
@@ -402,10 +462,76 @@
             if (node != null)
             {
                 node.Label = editingNodeText;
+
+                // Adjust node width based on label length to ensure text fits
+                // Rough estimate: each character takes ~10px width
+                double estimatedTextWidth = Math.Max(node.Label.Length * 10 + 40, node.Type == NodeType.Circle ? 80 : 120);
+                if (node.Width < estimatedTextWidth)
+                {
+                    node.Width = estimatedTextWidth;
+                    if (node.Type == NodeType.Circle)
+                    {
+                        node.Height = estimatedTextWidth;
+                    }
+                }
+
+                // Apply a simple repulsion algorithm to separate overlapping nodes
+                ResolveOverlaps();
+
                 await UpdateMermaidPreviewAsync();
             }
             editingNodeId = null;
         }
+    }
+
+    private void ResolveOverlaps()
+    {
+        bool moved;
+        int iterations = 0;
+        int maxIterations = 50;
+        do
+        {
+            moved = false;
+            for (int i = 0; i < graph.Nodes.Count; i++)
+            {
+                for (int j = i + 1; j < graph.Nodes.Count; j++)
+                {
+                    var n1 = graph.Nodes[i];
+                    var n2 = graph.Nodes[j];
+
+                    double dx = n2.X - n1.X;
+                    double dy = n2.Y - n1.Y;
+                    double dist = Math.Sqrt(dx * dx + dy * dy);
+
+                    // Estimate bounding radius (approximate based on diagonal)
+                    double r1 = Math.Sqrt((n1.Width/2)*(n1.Width/2) + (n1.Height/2)*(n1.Height/2));
+                    double r2 = Math.Sqrt((n2.Width/2)*(n2.Width/2) + (n2.Height/2)*(n2.Height/2));
+                    double minD = r1 + r2 + 20; // 20px padding
+
+                    if (dist < minD)
+                    {
+                        moved = true;
+                        // Avoid division by zero
+                        if (dist == 0)
+                        {
+                            dx = 1;
+                            dy = 0;
+                            dist = 1;
+                        }
+
+                        double pushDist = (minD - dist) / 2;
+                        double pushX = (dx / dist) * pushDist;
+                        double pushY = (dy / dist) * pushDist;
+
+                        n1.X -= pushX;
+                        n1.Y -= pushY;
+                        n2.X += pushX;
+                        n2.Y += pushY;
+                    }
+                }
+            }
+            iterations++;
+        } while (moved && iterations < maxIterations);
     }
 
     private async Task OnEditorKeyDown(KeyboardEventArgs e)
@@ -413,6 +539,30 @@
         if (e.Key == "Enter" || e.Key == "Escape")
         {
             await CommitNodeEdit();
+            await CommitEdgeEdit();
+        }
+    }
+
+    private async Task EditEdge(MermaidEditor.Models.Edge edge)
+    {
+        editingEdgeId = edge.Id;
+        editingEdgeText = edge.Label;
+
+        await Task.Delay(50);
+        await MermaidInterop.FocusElementAsync($"edge-editor-{edge.Id}");
+    }
+
+    private async Task CommitEdgeEdit()
+    {
+        if (editingEdgeId != null)
+        {
+            var edge = graph.Edges.FirstOrDefault(e => e.Id == editingEdgeId);
+            if (edge != null)
+            {
+                edge.Label = editingEdgeText;
+                await UpdateMermaidPreviewAsync();
+            }
+            editingEdgeId = null;
         }
     }
 
@@ -437,15 +587,53 @@
         }
     }
 
+    private NodeType? draggedShapeType;
+
+    private void OnDragStartShape(NodeType type)
+    {
+        draggedShapeType = type;
+    }
+
+    private async Task OnCanvasDrop(DragEventArgs e)
+    {
+        if (draggedShapeType.HasValue)
+        {
+            var id = $"Node{nodeCounter}";
+            double localX = (e.ClientX - panX) / zoom;
+            double localY = (e.ClientY - panY) / zoom;
+
+            graph.Nodes.Add(new Node
+            {
+                Id = id,
+                Label = $"Node {nodeCounter}",
+                X = localX,
+                Y = localY,
+                Type = draggedShapeType.Value,
+                Width = draggedShapeType.Value == NodeType.Circle ? 80 : 120,
+                Height = draggedShapeType.Value == NodeType.Circle ? 80 : 60
+            });
+            nodeCounter++;
+            draggedShapeType = null;
+            await UpdateMermaidPreviewAsync();
+        }
+    }
+
     private async Task AddNode(NodeType type)
     {
         var id = $"Node{nodeCounter}";
+        // Add to roughly center of view
+        double centerX = (400 - panX) / zoom;
+        double centerY = (300 - panY) / zoom;
+        // Default slightly offset if multiple created
+        double offsetX = (nodeCounter * 20 % 100);
+        double offsetY = (nodeCounter * 20 % 100);
+
         graph.Nodes.Add(new Node
         {
             Id = id,
             Label = $"Node {nodeCounter}",
-            X = 100 + (nodeCounter * 20 % 200),
-            Y = 100 + (nodeCounter * 20 % 200),
+            X = centerX + offsetX,
+            Y = centerY + offsetY,
             Type = type,
             Width = type == NodeType.Circle ? 80 : 120,
             Height = type == NodeType.Circle ? 80 : 60
@@ -464,6 +652,9 @@
     private void OnNodeMouseDown(MouseEventArgs e, Node node)
     {
         if (e.Button == 1) return;
+        selectedNode = node;
+        nodeClickX = e.ClientX;
+        nodeClickY = e.ClientY - (node.Height / 2 * zoom);
         if (e.ShiftKey)
         {
             // Start connecting
@@ -564,8 +755,42 @@
     private void OnEdgeClick(MouseEventArgs e, MermaidEditor.Models.Edge edge)
     {
         selectedEdge = edge;
+        selectedNode = null;
         edgeClickX = e.ClientX;
         edgeClickY = e.ClientY;
+    }
+
+    private async Task DeleteNode(Node node)
+    {
+        graph.Nodes.Remove(node);
+        graph.Edges.RemoveAll(e => e.SourceNodeId == node.Id || e.TargetNodeId == node.Id);
+        selectedNode = null;
+        await UpdateMermaidPreviewAsync();
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Delete" || e.Key == "Backspace")
+        {
+            bool updated = false;
+            if (selectedNode != null && editingNodeId == null)
+            {
+                graph.Nodes.Remove(selectedNode);
+                graph.Edges.RemoveAll(ed => ed.SourceNodeId == selectedNode.Id || ed.TargetNodeId == selectedNode.Id);
+                selectedNode = null;
+                updated = true;
+            }
+            if (selectedEdge != null)
+            {
+                graph.Edges.Remove(selectedEdge);
+                selectedEdge = null;
+                updated = true;
+            }
+            if (updated)
+            {
+                await UpdateMermaidPreviewAsync();
+            }
+        }
     }
 
     private async Task SetEdgeStyle(MermaidEditor.Models.Edge edge, EdgeLineStyle style)
@@ -589,12 +814,22 @@
         {
             resizingNode = null;
             await UpdateMermaidPreviewAsync();
+            if (selectedNode != null)
+            {
+                nodeClickX = e.ClientX;
+                nodeClickY = e.ClientY - (selectedNode.Height / 2 * zoom);
+            }
         }
 
         if (draggingNode != null)
         {
             draggingNode = null;
             await UpdateMermaidPreviewAsync();
+            if (selectedNode != null)
+            {
+                nodeClickX = e.ClientX;
+                nodeClickY = e.ClientY - (selectedNode.Height / 2 * zoom);
+            }
         }
 
         if (isConnecting)
@@ -603,12 +838,11 @@
             activeSourceNode = null;
         }
 
-        // Deselect edge if clicking on empty space (not dragging or connecting or resizing)
-        if (selectedEdge != null && !isConnecting && draggingNode == null && resizingNode == null)
+        // Deselect edge and node if clicking on empty space (not dragging or connecting or resizing)
+        if (!isConnecting && draggingNode == null && resizingNode == null)
         {
-            // If the mouse up event propagates here, it means we clicked on the canvas
-            // The edge click stops propagation.
             selectedEdge = null;
+            selectedNode = null;
         }
     }
 
