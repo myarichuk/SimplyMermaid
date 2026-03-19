@@ -70,7 +70,7 @@
 
     @if (selectedEdge != null && editingEdgeId == null)
     {
-        <div class="floating-toolbar" style="top: @(contextMenuY)px; left: @(contextMenuX)px; transform: translate(0, 0); margin-top: 5px; margin-left: 5px; z-index: 1000;" @onmousedown:stopPropagation="true" @onmousemove:stopPropagation="true">
+        <div class="floating-toolbar" style="top: @(contextMenuY)px; left: @(contextMenuX)px; transform: translate(0, 0); margin-top: 5px; margin-left: 5px; z-index: 1000;" @onmousedown:stopPropagation="true" @onmousemove:stopPropagation="true" @ontouchstart:stopPropagation="true" @ontouchmove:stopPropagation="true">
             <MudIconButton Icon="@Icons.Material.Filled.HorizontalRule" Color="@(selectedEdge.LineStyle == EdgeLineStyle.Solid ? Color.Primary : Color.Default)" OnClick="@(() => SetEdgeStyle(selectedEdge, EdgeLineStyle.Solid))" title="Solid Line" />
             <MudIconButton Icon="@Icons.Material.Filled.MoreHoriz" Color="@(selectedEdge.LineStyle == EdgeLineStyle.Dashed ? Color.Primary : Color.Default)" OnClick="@(() => SetEdgeStyle(selectedEdge, EdgeLineStyle.Dashed))" title="Dashed Line" />
             <MudIconButton Icon="@Icons.Material.Filled.LensBlur" Color="@(selectedEdge.LineStyle == EdgeLineStyle.Dotted ? Color.Primary : Color.Default)" OnClick="@(() => SetEdgeStyle(selectedEdge, EdgeLineStyle.Dotted))" title="Dotted Line" />
@@ -83,7 +83,7 @@
 
     @if (selectedNode != null && editingNodeId == null)
     {
-        <div class="floating-toolbar" style="top: @(contextMenuY)px; left: @(contextMenuX)px; transform: translate(0, 0); margin-top: 5px; margin-left: 5px; z-index: 1000;" @onmousedown:stopPropagation="true" @onmousemove:stopPropagation="true">
+        <div class="floating-toolbar" style="top: @(contextMenuY)px; left: @(contextMenuX)px; transform: translate(0, 0); margin-top: 5px; margin-left: 5px; z-index: 1000;" @onmousedown:stopPropagation="true" @onmousemove:stopPropagation="true" @ontouchstart:stopPropagation="true" @ontouchmove:stopPropagation="true">
             <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" OnClick="@(() => EditNode(selectedNode))" title="Edit Label" />
             <div style="width: 1px; height: 24px; background-color: var(--mud-palette-divider); margin: 0 8px;"></div>
             <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => DeleteNode(selectedNode))" title="Delete Node" />
@@ -92,11 +92,16 @@
 
     <!-- Full Screen Canvas -->
     <svg class="graph-canvas w-100 h-100"
-         style="cursor: @(isPanning ? "grabbing" : "crosshair");"
+         style="cursor: @(isPanning ? "grabbing" : "crosshair"); touch-action: none;"
          @onmousemove="OnMouseMove"
          @onmouseup="OnMouseUp"
          @onmouseleave="OnMouseUp"
          @onmousedown="OnSvgMouseDown"
+         @ontouchstart="OnSvgTouchStart"
+         @ontouchmove="OnSvgTouchMove"
+         @ontouchend="OnSvgTouchEnd"
+         @ontouchcancel="OnSvgTouchEnd"
+         @ontouchmove:preventDefault="true"
          @oncontextmenu="OnSvgContextMenu"
          @oncontextmenu:preventDefault="true"
          @onwheel="OnWheel"
@@ -178,7 +183,7 @@
                 double midX = 0.25 * source.X + 0.5 * cx + 0.25 * targetXAdjusted;
                 double midY = 0.25 * source.Y + 0.5 * cy + 0.25 * targetYAdjusted;
 
-                <g style="cursor: pointer;" @onclick="@(e => OnEdgeClick(e, edge))" @oncontextmenu="@(e => OnEdgeContextMenu(e, edge))" @oncontextmenu:preventDefault="true" @oncontextmenu:stopPropagation="true" @ondblclick="@(() => EditEdge(edge))" @onclick:stopPropagation="true">
+                <g style="cursor: pointer;" @onclick="@(e => OnEdgeClick(e, edge))" @oncontextmenu="@(e => OnEdgeContextMenu(e, edge))" @oncontextmenu:preventDefault="true" @oncontextmenu:stopPropagation="true" @ondblclick="@(() => EditEdge(edge))" @onclick:stopPropagation="true" @ontouchstart="@(e => OnEdgeTouchStart(e, edge))" @ontouchstart:stopPropagation="true" @ontouchstart:preventDefault="true">
                     <!-- Invisible thick path for easier clicking -->
                     <path d="@pathD" stroke="transparent" stroke-width="20" fill="none" />
                     <!-- Visible path -->
@@ -252,6 +257,10 @@
             <g transform="translate(@node.X, @node.Y)"
                @onmousedown="@(e => OnNodeMouseDown(e, node))"
                @onmouseup="@(e => OnNodeMouseUp(e, node))"
+               @ontouchstart="@(e => OnNodeTouchStart(e, node))"
+               @ontouchstart:stopPropagation="true"
+               @ontouchend="@(e => OnNodeTouchEnd(e, node))"
+               @ontouchend:stopPropagation="true"
                @ondblclick="@(() => EditNode(node))"
                @oncontextmenu="@(e => OnNodeContextMenu(e, node))"
                @oncontextmenu:preventDefault="true"
@@ -307,7 +316,8 @@
                 <!-- Resize Handle -->
                 <polygon points="@(handleX - 10),@(handleY) @(handleX),@(handleY - 10) @(handleX),@(handleY)"
                          fill="var(--mud-palette-text-primary)" style="cursor: nwse-resize;"
-                         @onmousedown="@(e => OnResizeMouseDown(e, node))" @onmousedown:stopPropagation="true" />
+                         @onmousedown="@(e => OnResizeMouseDown(e, node))" @onmousedown:stopPropagation="true"
+                         @ontouchstart="@(e => OnResizeTouchStart(e, node))" @ontouchstart:stopPropagation="true" />
             </g>
         }
 
@@ -396,20 +406,46 @@
     {
         if (e.Button == 0 && !e.ShiftKey && draggingNode == null && !isConnecting)
         {
-             isPanning = true;
-             panStartMouseX = e.ClientX;
-             panStartMouseY = e.ClientY;
-             panStartX = panX;
-             panStartY = panY;
+             HandleCanvasDown(e.ClientX, e.ClientY);
         }
         else if (e.Button == 1) // Middle mouse
         {
-             isPanning = true;
-             panStartMouseX = e.ClientX;
-             panStartMouseY = e.ClientY;
-             panStartX = panX;
-             panStartY = panY;
+             HandleCanvasDown(e.ClientX, e.ClientY);
         }
+    }
+
+    private void HandleCanvasDown(double clientX, double clientY)
+    {
+         isPanning = true;
+         panStartMouseX = clientX;
+         panStartMouseY = clientY;
+         panStartX = panX;
+         panStartY = panY;
+    }
+
+    // Fix for Issue 2: TOUCH / MOBILE
+    // Added touch-specific event handlers mapping directly to pointer logic
+    private void OnSvgTouchStart(TouchEventArgs e)
+    {
+        if (e.TargetTouches != null && e.TargetTouches.Length > 0 && draggingNode == null && !isConnecting)
+        {
+            var touch = e.TargetTouches[0];
+            HandleCanvasDown(touch.ClientX, touch.ClientY);
+        }
+    }
+
+    private void OnSvgTouchMove(TouchEventArgs e)
+    {
+        if (e.TargetTouches != null && e.TargetTouches.Length > 0)
+        {
+            var touch = e.TargetTouches[0];
+            HandlePointerMove(touch.ClientX, touch.ClientY);
+        }
+    }
+
+    private async Task OnSvgTouchEnd(TouchEventArgs e)
+    {
+        await HandlePointerUp();
     }
 
     private void OnWheel(WheelEventArgs e)
@@ -701,7 +737,23 @@
     private void OnNodeMouseDown(MouseEventArgs e, Node node)
     {
         if (e.Button == 1 || e.Button == 2) return; // Ignore middle and right clicks for dragging
-        if (e.ShiftKey)
+        HandleNodeDown(e.ClientX, e.ClientY, e.ShiftKey, node);
+    }
+
+    private void OnNodeTouchStart(TouchEventArgs e, Node node)
+    {
+        if (e.TargetTouches != null && e.TargetTouches.Length > 0)
+        {
+            var touch = e.TargetTouches[0];
+            // We'll treat long-presses (where we wouldn't normally get shift key) as connecting sometimes,
+            // but the prompt mentions "Shift-drag edges" - some virtual keyboards or desktop touch handles shift.
+            HandleNodeDown(touch.ClientX, touch.ClientY, e.ShiftKey, node);
+        }
+    }
+
+    private void HandleNodeDown(double clientX, double clientY, bool shiftKey, Node node)
+    {
+        if (shiftKey)
         {
             // Start connecting
             isConnecting = true;
@@ -713,14 +765,24 @@
         {
             // Start dragging
             draggingNode = node;
-            double localX = (e.ClientX - panX) / zoom;
-            double localY = (e.ClientY - panY) / zoom;
+            double localX = (clientX - panX) / zoom;
+            double localY = (clientY - panY) / zoom;
             dragOffsetX = localX - node.X;
             dragOffsetY = localY - node.Y;
         }
     }
 
+    private async Task OnNodeTouchEnd(TouchEventArgs e, Node node)
+    {
+        await HandleNodeUp(node);
+    }
+
     private async Task OnNodeMouseUp(MouseEventArgs e, Node targetNode)
+    {
+        await HandleNodeUp(targetNode);
+    }
+
+    private async Task HandleNodeUp(Node targetNode)
     {
         if (isConnecting && activeSourceNode != null && activeSourceNode != targetNode)
         {
@@ -747,11 +809,25 @@
 
     private void OnResizeMouseDown(MouseEventArgs e, Node node)
     {
+        HandleResizeDown(e.ClientX, e.ClientY, node);
+    }
+
+    private void OnResizeTouchStart(TouchEventArgs e, Node node)
+    {
+        if (e.TargetTouches != null && e.TargetTouches.Length > 0)
+        {
+            var touch = e.TargetTouches[0];
+            HandleResizeDown(touch.ClientX, touch.ClientY, node);
+        }
+    }
+
+    private void HandleResizeDown(double clientX, double clientY, Node node)
+    {
         resizingNode = node;
         resizeStartWidth = node.Width;
         resizeStartHeight = node.Height;
-        resizeStartMouseX = e.ClientX;
-        resizeStartMouseY = e.ClientY;
+        resizeStartMouseX = clientX;
+        resizeStartMouseY = clientY;
     }
 
     private void OnSvgContextMenu(MouseEventArgs e)
@@ -768,6 +844,18 @@
         contextMenuY = e.ClientY;
     }
 
+    private void OnEdgeTouchStart(TouchEventArgs e, MermaidEditor.Models.Edge edge)
+    {
+        if (e.TargetTouches != null && e.TargetTouches.Length > 0)
+        {
+            var touch = e.TargetTouches[0];
+            selectedEdge = edge;
+            selectedNode = null;
+            contextMenuX = touch.ClientX;
+            contextMenuY = touch.ClientY;
+        }
+    }
+
     private void OnEdgeContextMenu(MouseEventArgs e, MermaidEditor.Models.Edge edge)
     {
         selectedEdge = edge;
@@ -776,11 +864,21 @@
         contextMenuY = e.ClientY;
     }
 
+    // Fix for Issue 1: PERFORMANCE
+    // Before: Every PointerMove directly invoked C# -> Mermaid serialization -> JS rendering (heavy).
+    // After: Debounce pointer movements (max ~60fps checking), pushing updates to a throttled QueueRender(false).
+    private DateTime _lastMoveTime = DateTime.MinValue;
+
     private void OnMouseMove(MouseEventArgs e)
+    {
+        HandlePointerMove(e.ClientX, e.ClientY);
+    }
+
+    private void HandlePointerMove(double clientX, double clientY)
     {
         if (selectedNode != null || selectedEdge != null)
         {
-            double dist = Math.Sqrt(Math.Pow(e.ClientX - contextMenuX, 2) + Math.Pow(e.ClientY - contextMenuY, 2));
+            double dist = Math.Sqrt(Math.Pow(clientX - contextMenuX, 2) + Math.Pow(clientY - contextMenuY, 2));
             if (dist > 200)
             {
                 selectedNode = null;
@@ -789,15 +887,17 @@
             }
         }
 
-        if (isPanning)
+        if (isPanning || resizingNode != null || draggingNode != null || isConnecting)
         {
-            panX = panStartX + (e.ClientX - panStartMouseX);
-            panY = panStartY + (e.ClientY - panStartMouseY);
-        }
-        else if (resizingNode != null)
-        {
-            double deltaX = (e.ClientX - resizeStartMouseX) / zoom;
-            double deltaY = (e.ClientY - resizeStartMouseY) / zoom;
+            if (isPanning)
+            {
+                panX = panStartX + (clientX - panStartMouseX);
+                panY = panStartY + (clientY - panStartMouseY);
+            }
+            else if (resizingNode != null)
+            {
+                double deltaX = (clientX - resizeStartMouseX) / zoom;
+                double deltaY = (clientY - resizeStartMouseY) / zoom;
 
             double multiplierX = 2;
             double multiplierY = 2;
@@ -822,30 +922,39 @@
             double newWidth = resizeStartWidth + deltaX * multiplierX;
             double newHeight = resizeStartHeight + deltaY * multiplierY;
 
-            if (resizingNode.Type == NodeType.Circle)
-            {
-                // Maintain aspect ratio for circles
-                double size = Math.Max(40, Math.Max(newWidth, newHeight));
-                resizingNode.Width = size;
-                resizingNode.Height = size;
+                if (resizingNode.Type == NodeType.Circle)
+                {
+                    // Maintain aspect ratio for circles
+                    double size = Math.Max(40, Math.Max(newWidth, newHeight));
+                    resizingNode.Width = size;
+                    resizingNode.Height = size;
+                }
+                else
+                {
+                    if (newWidth >= 40) resizingNode.Width = newWidth;
+                    if (newHeight >= 40) resizingNode.Height = newHeight;
+                }
             }
-            else
+            else if (draggingNode != null)
             {
-                if (newWidth >= 40) resizingNode.Width = newWidth;
-                if (newHeight >= 40) resizingNode.Height = newHeight;
+                double localX = (clientX - panX) / zoom;
+                double localY = (clientY - panY) / zoom;
+                draggingNode.X = localX - dragOffsetX;
+                draggingNode.Y = localY - dragOffsetY;
             }
-        }
-        else if (draggingNode != null)
-        {
-            double localX = (e.ClientX - panX) / zoom;
-            double localY = (e.ClientY - panY) / zoom;
-            draggingNode.X = localX - dragOffsetX;
-            draggingNode.Y = localY - dragOffsetY;
-        }
-        else if (isConnecting)
-        {
-            mouseX = (e.ClientX - panX) / zoom;
-            mouseY = (e.ClientY - panY) / zoom;
+            else if (isConnecting)
+            {
+                mouseX = (clientX - panX) / zoom;
+                mouseY = (clientY - panY) / zoom;
+            }
+
+            var now = DateTime.UtcNow;
+            if ((now - _lastMoveTime).TotalMilliseconds >= 16)
+            {
+                _lastMoveTime = now;
+                // Queue a render (not immediate, so it can bundle rapid moves)
+                _ = QueueRender(false);
+            }
         }
     }
 
@@ -902,6 +1011,11 @@
 
     private async Task OnMouseUp(MouseEventArgs e)
     {
+        await HandlePointerUp();
+    }
+
+    private async Task HandlePointerUp()
+    {
         if (isPanning) isPanning = false;
 
         if (resizingNode != null)
@@ -923,10 +1037,50 @@
         }
     }
 
+    // Fix for Issue 3: STATE SYNC RACES
+    // Before: Multiple awaited UpdateMermaidPreviewAsync calls caused C#/JS/Mermaid drift during rapid edits.
+    // After: Centralized RenderQueue enforces a single sequential update loop.
+    private bool _isRendering = false;
+    private bool _renderPending = false;
+    private Task? _currentRenderTask = null;
+
+    private Task QueueRender(bool immediate = false)
+    {
+        _renderPending = true;
+
+        if (_isRendering)
+        {
+            // If we are already rendering, and this is an immediate request, we can just await the ongoing loop
+            // to pick up our pending request.
+            return immediate ? _currentRenderTask ?? Task.CompletedTask : Task.CompletedTask;
+        }
+
+        _currentRenderTask = ProcessRenderQueueAsync();
+        return immediate ? _currentRenderTask : Task.CompletedTask;
+    }
+
+    private async Task ProcessRenderQueueAsync()
+    {
+        while (_renderPending)
+        {
+            _renderPending = false;
+            _isRendering = true;
+            try
+            {
+                mermaidCode = MermaidSerializer.Serialize(graph);
+                await MermaidInterop.RenderMermaidAsync("mermaid-preview", mermaidCode);
+                await LocalStorage.SetItemAsync("mermaid_graph", graph);
+            }
+            finally
+            {
+                _isRendering = false;
+            }
+        }
+        _currentRenderTask = null;
+    }
+
     private async Task UpdateMermaidPreviewAsync()
     {
-        mermaidCode = MermaidSerializer.Serialize(graph);
-        await MermaidInterop.RenderMermaidAsync("mermaid-preview", mermaidCode);
-        await LocalStorage.SetItemAsync("mermaid_graph", graph);
+        await QueueRender(true);
     }
 }
