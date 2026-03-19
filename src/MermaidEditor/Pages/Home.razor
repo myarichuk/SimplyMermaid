@@ -70,7 +70,7 @@
 
     @if (selectedEdge != null && editingEdgeId == null)
     {
-        <div class="floating-toolbar" style="top: @(edgeClickY)px; left: @(edgeClickX)px; transform: translate(-50%, -100%); margin-top: -10px; z-index: 1000;" @onmousedown:stopPropagation="true">
+        <div class="floating-toolbar" style="top: @(contextMenuY)px; left: @(contextMenuX)px; transform: translate(0, 0); margin-top: 5px; margin-left: 5px; z-index: 1000;" @onmousedown:stopPropagation="true" @onmousemove:stopPropagation="true">
             <MudIconButton Icon="@Icons.Material.Filled.HorizontalRule" Color="@(selectedEdge.LineStyle == EdgeLineStyle.Solid ? Color.Primary : Color.Default)" OnClick="@(() => SetEdgeStyle(selectedEdge, EdgeLineStyle.Solid))" title="Solid Line" />
             <MudIconButton Icon="@Icons.Material.Filled.MoreHoriz" Color="@(selectedEdge.LineStyle == EdgeLineStyle.Dashed ? Color.Primary : Color.Default)" OnClick="@(() => SetEdgeStyle(selectedEdge, EdgeLineStyle.Dashed))" title="Dashed Line" />
             <MudIconButton Icon="@Icons.Material.Filled.LensBlur" Color="@(selectedEdge.LineStyle == EdgeLineStyle.Dotted ? Color.Primary : Color.Default)" OnClick="@(() => SetEdgeStyle(selectedEdge, EdgeLineStyle.Dotted))" title="Dotted Line" />
@@ -83,7 +83,7 @@
 
     @if (selectedNode != null && editingNodeId == null)
     {
-        <div class="floating-toolbar" style="top: @(nodeClickY)px; left: @(nodeClickX)px; transform: translate(-50%, -100%); margin-top: -10px; z-index: 1000;" @onmousedown:stopPropagation="true">
+        <div class="floating-toolbar" style="top: @(contextMenuY)px; left: @(contextMenuX)px; transform: translate(0, 0); margin-top: 5px; margin-left: 5px; z-index: 1000;" @onmousedown:stopPropagation="true" @onmousemove:stopPropagation="true">
             <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" OnClick="@(() => EditNode(selectedNode))" title="Edit Label" />
             <div style="width: 1px; height: 24px; background-color: var(--mud-palette-divider); margin: 0 8px;"></div>
             <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => DeleteNode(selectedNode))" title="Delete Node" />
@@ -97,6 +97,8 @@
          @onmouseup="OnMouseUp"
          @onmouseleave="OnMouseUp"
          @onmousedown="OnSvgMouseDown"
+         @oncontextmenu="OnSvgContextMenu"
+         @oncontextmenu:preventDefault="true"
          @onwheel="OnWheel"
          @onwheel:preventDefault="true">
 
@@ -150,7 +152,7 @@
                 double midX = 0.25 * source.X + 0.5 * cx + 0.25 * targetXAdjusted;
                 double midY = 0.25 * source.Y + 0.5 * cy + 0.25 * targetYAdjusted;
 
-                <g style="cursor: pointer;" @onclick="@(e => OnEdgeClick(e, edge))" @ondblclick="@(() => EditEdge(edge))" @onclick:stopPropagation="true">
+                <g style="cursor: pointer;" @onclick="@(e => OnEdgeClick(e, edge))" @oncontextmenu="@(e => OnEdgeContextMenu(e, edge))" @oncontextmenu:preventDefault="true" @oncontextmenu:stopPropagation="true" @ondblclick="@(() => EditEdge(edge))" @onclick:stopPropagation="true">
                     <!-- Invisible thick path for easier clicking -->
                     <path d="@pathD" stroke="transparent" stroke-width="20" fill="none" />
                     <!-- Visible path -->
@@ -205,6 +207,9 @@
                @onmousedown="@(e => OnNodeMouseDown(e, node))"
                @onmouseup="@(e => OnNodeMouseUp(e, node))"
                @ondblclick="@(() => EditNode(node))"
+               @oncontextmenu="@(e => OnNodeContextMenu(e, node))"
+               @oncontextmenu:preventDefault="true"
+               @oncontextmenu:stopPropagation="true"
                class="graph-node" style="cursor: grab;">
 
                 @if (node.Type == NodeType.Rectangle || node.Type == NodeType.RoundedRectangle || node.Type == NodeType.Stadium)
@@ -405,11 +410,9 @@
     }
 
     private MermaidEditor.Models.Edge? selectedEdge;
-    private double edgeClickX;
-    private double edgeClickY;
     private Node? selectedNode;
-    private double nodeClickX;
-    private double nodeClickY;
+    private double contextMenuX;
+    private double contextMenuY;
     private ElementReference containerRef;
     private int nodeCounter = 1;
     private Node? draggingNode;
@@ -651,10 +654,7 @@
 
     private void OnNodeMouseDown(MouseEventArgs e, Node node)
     {
-        if (e.Button == 1) return;
-        selectedNode = node;
-        nodeClickX = e.ClientX;
-        nodeClickY = e.ClientY - (node.Height / 2 * zoom);
+        if (e.Button == 1 || e.Button == 2) return; // Ignore middle and right clicks for dragging
         if (e.ShiftKey)
         {
             // Start connecting
@@ -708,8 +708,41 @@
         resizeStartMouseY = e.ClientY;
     }
 
+    private void OnSvgContextMenu(MouseEventArgs e)
+    {
+        selectedNode = null;
+        selectedEdge = null;
+    }
+
+    private void OnNodeContextMenu(MouseEventArgs e, Node node)
+    {
+        selectedNode = node;
+        selectedEdge = null;
+        contextMenuX = e.ClientX;
+        contextMenuY = e.ClientY;
+    }
+
+    private void OnEdgeContextMenu(MouseEventArgs e, MermaidEditor.Models.Edge edge)
+    {
+        selectedEdge = edge;
+        selectedNode = null;
+        contextMenuX = e.ClientX;
+        contextMenuY = e.ClientY;
+    }
+
     private void OnMouseMove(MouseEventArgs e)
     {
+        if (selectedNode != null || selectedEdge != null)
+        {
+            double dist = Math.Sqrt(Math.Pow(e.ClientX - contextMenuX, 2) + Math.Pow(e.ClientY - contextMenuY, 2));
+            if (dist > 200)
+            {
+                selectedNode = null;
+                selectedEdge = null;
+                StateHasChanged();
+            }
+        }
+
         if (isPanning)
         {
             panX = panStartX + (e.ClientX - panStartMouseX);
@@ -754,10 +787,7 @@
 
     private void OnEdgeClick(MouseEventArgs e, MermaidEditor.Models.Edge edge)
     {
-        selectedEdge = edge;
-        selectedNode = null;
-        edgeClickX = e.ClientX;
-        edgeClickY = e.ClientY;
+        // Now handled by right click, do nothing on left click
     }
 
     private async Task DeleteNode(Node node)
@@ -814,35 +844,18 @@
         {
             resizingNode = null;
             await UpdateMermaidPreviewAsync();
-            if (selectedNode != null)
-            {
-                nodeClickX = e.ClientX;
-                nodeClickY = e.ClientY - (selectedNode.Height / 2 * zoom);
-            }
         }
 
         if (draggingNode != null)
         {
             draggingNode = null;
             await UpdateMermaidPreviewAsync();
-            if (selectedNode != null)
-            {
-                nodeClickX = e.ClientX;
-                nodeClickY = e.ClientY - (selectedNode.Height / 2 * zoom);
-            }
         }
 
         if (isConnecting)
         {
             isConnecting = false;
             activeSourceNode = null;
-        }
-
-        // Deselect edge and node if clicking on empty space (not dragging or connecting or resizing)
-        if (!isConnecting && draggingNode == null && resizingNode == null)
-        {
-            selectedEdge = null;
-            selectedNode = null;
         }
     }
 
