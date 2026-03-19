@@ -99,6 +99,14 @@ public static class MermaidSerializer
             }
         }
 
+        var positions = new System.Collections.Generic.Dictionary<string, double[]>();
+        foreach (var node in graph.Nodes)
+        {
+            positions[node.Id] = new double[] { node.X, node.Y };
+        }
+        var positionsJson = System.Text.Json.JsonSerializer.Serialize(positions);
+        sb.AppendLine($"\n%% SimplyMermaidPositions: {positionsJson}");
+
         return sb.ToString();
     }
 }
