@@ -24,6 +24,7 @@
         <MudIconButton Icon="@Icons.Material.Filled.Add" Color="Color.Default" OnClick="ZoomIn" title="Zoom In" />
         <MudIconButton Icon="@Icons.Material.Filled.FilterCenterFocus" Color="Color.Default" OnClick="ResetZoomPan" title="Reset View" />
         <div style="width: 1px; height: 24px; background-color: var(--mud-palette-divider); margin: 0 8px;"></div>
+        <MudIconButton Icon="@Icons.Material.Filled.Upload" Color="Color.Info" OnClick="ToggleImportDrawer" title="Import" />
         <MudIconButton Icon="@Icons.Material.Filled.Download" Color="Color.Info" OnClick="ToggleExportDrawer" title="Export" />
         <div style="width: 1px; height: 24px; background-color: var(--mud-palette-divider); margin: 0 8px;"></div>
         <MudTooltip Text="Click and drag to move. Shift+Drag to connect. Double-click to edit text.">
@@ -119,7 +120,7 @@
             var target = graph.Nodes.FirstOrDefault(n => n.Id == edge.TargetNodeId);
             if (source != null && target != null)
             {
-                var isSelected = selectedEdge == edge;
+                var isSelected = selectedEdge == edge || selectedEdges.Contains(edge);
                 var dashArray = edge.LineStyle switch
                 {
                     EdgeLineStyle.Dashed => "8,8",
@@ -359,8 +360,33 @@
     </svg>
 
     <div class="position-absolute bottom-0 start-50 translate-middle-x mb-4 text-center" style="z-index: 1000; pointer-events: none;">
-        <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary); background: var(--mud-palette-surface); padding: 4px 8px; border-radius: 4px; opacity: 0.8;">Drag empty space to multi-select nodes • Hold Shift + drag from node to create connection • Right-click node for options</MudText>
+        <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary); background: var(--mud-palette-surface); padding: 4px 8px; border-radius: 4px; opacity: 0.8;">Drag empty space to multi-select nodes • Hold Shift + drag from node to create connection • Right-click node for options • Del to delete • Esc to cancel</MudText>
     </div>
+
+    <!-- Import Drawer -->
+    <MudDrawer @bind-Open="_importDrawerOpen" Anchor="Anchor.End" Elevation="1" Variant="@DrawerVariant.Temporary" Width="450px" Class="p-8" Style="z-index: 1001;" Overlay="false">
+        <MudDrawerHeader Class="px-0 pt-0">
+            <MudText Typo="Typo.h5">Import Diagram</MudText>
+            <MudSpacer />
+            <MudIconButton Icon="@Icons.Material.Filled.Close" OnClick="ToggleImportDrawer" />
+        </MudDrawerHeader>
+
+        <MudText Typo="Typo.subtitle2" Class="mb-2">Upload JSON</MudText>
+        <MudPaper Elevation="0" Class="p-4 mb-6 border-solid mud-border-lines-default rounded" Style="background-color: var(--mud-palette-surface);">
+            <MudFileUpload T="IBrowserFile" Accept=".json" FilesChanged="UploadJson" Class="mt-0">
+                <ActivatorContent>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.CloudUpload" FullWidth="true">Upload JSON File</MudButton>
+                </ActivatorContent>
+            </MudFileUpload>
+        </MudPaper>
+
+        <MudText Typo="Typo.subtitle2" Class="mb-2">Mermaid Source</MudText>
+        <MudPaper Elevation="0" Class="p-4 mb-6 border-solid mud-border-lines-default rounded" Style="background-color: var(--mud-palette-background-grey); position: relative; font-family: monospace;">
+            <textarea id="mermaid-source-code" @bind="mermaidImportCode" class="w-100 h-100" style="background:transparent; color:inherit; border:none; resize:none;" rows="10"></textarea>
+        </MudPaper>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Upload" OnClick="ImportMermaidAsync" FullWidth="true">Import Mermaid Text</MudButton>
+    </MudDrawer>
 
     <!-- Export Drawer -->
     <MudDrawer @bind-Open="_exportDrawerOpen" Anchor="Anchor.End" Elevation="1" Variant="@DrawerVariant.Temporary" Width="450px" Class="p-8" Style="z-index: 1001;" Overlay="false">
@@ -375,15 +401,7 @@
             <div id="mermaid-preview" class="mermaid-render-area w-100 h-100"></div>
         </MudPaper>
 
-        <MudText Typo="Typo.subtitle2" Class="mb-2">Mermaid Source</MudText>
-        <MudPaper Elevation="0" Class="p-4 mb-6 border-solid mud-border-lines-default rounded" Style="background-color: var(--mud-palette-background-grey); position: relative; font-family: monospace;">
-            <textarea id="mermaid-source-code" @bind="mermaidImportCode" class="w-100 h-100" style="background:transparent; color:inherit; border:none; resize:none;" rows="10"></textarea>
-        </MudPaper>
-
-        <div class="d-flex justify-space-between mb-2 gap-2">
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="CopyMermaidCodeToClipboard" FullWidth="true">Copy</MudButton>
-            <MudButton Variant="Variant.Filled" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Upload" OnClick="ImportMermaidAsync" FullWidth="true">Import</MudButton>
-        </div>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="CopyMermaidCodeToClipboard" FullWidth="true" Class="mb-4">Copy Mermaid Code</MudButton>
         <div class="d-flex justify-space-between mt-2">
             <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Download" OnClick="DownloadJson">JSON</MudButton>
             <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Download" OnClick="DownloadMarkdown">MD</MudButton>
@@ -433,6 +451,7 @@
 
     private void OnSvgMouseDown(MouseEventArgs e)
     {
+        _ = containerRef.FocusAsync();
         selectedNode = null;
         selectedEdge = null;
 
@@ -462,6 +481,7 @@
              if (!keepSelection)
              {
                  selectedNodes.Clear();
+                 selectedEdges.Clear();
              }
              lassoStartX = (clientX - panX) / zoom;
              lassoStartY = (clientY - panY) / zoom;
@@ -474,6 +494,7 @@
     // Added touch-specific event handlers mapping directly to pointer logic
     private void OnSvgTouchStart(TouchEventArgs e)
     {
+        _ = containerRef.FocusAsync();
         if (e.TargetTouches != null && e.TargetTouches.Length > 0 && draggingNode == null && !isConnecting)
         {
             var touch = e.TargetTouches[0];
@@ -551,6 +572,7 @@
     private double lassoCurrentX;
     private double lassoCurrentY;
     private HashSet<Node> selectedNodes = new HashSet<Node>();
+    private HashSet<MermaidEditor.Models.Edge> selectedEdges = new HashSet<MermaidEditor.Models.Edge>();
     private Dictionary<Node, (double offsetX, double offsetY)> dragOffsets = new();
     private double dragOffsetX;
     private double dragOffsetY;
@@ -566,6 +588,7 @@
 
     // Export Drawer State
     private bool _exportDrawerOpen = false;
+    private bool _importDrawerOpen = false;
 
     // Inline Editing State
     private string? editingNodeId;
@@ -576,6 +599,44 @@
     private void ToggleExportDrawer()
     {
         _exportDrawerOpen = !_exportDrawerOpen;
+    }
+
+    private void ToggleImportDrawer()
+    {
+        _importDrawerOpen = !_importDrawerOpen;
+    }
+
+    private async Task UploadJson(IBrowserFile file)
+    {
+        if (file == null) return;
+        try
+        {
+            using var stream = file.OpenReadStream();
+            var importedGraph = await System.Text.Json.JsonSerializer.DeserializeAsync<Graph>(stream);
+            if (importedGraph != null)
+            {
+                graph = importedGraph;
+                selectedNode = null;
+                selectedEdge = null;
+                selectedNodes.Clear();
+                selectedEdges.Clear();
+
+                nodeCounter = 1;
+                foreach (var node in graph.Nodes)
+                {
+                    if (node.Id.StartsWith("Node") && int.TryParse(node.Id.Substring(4), out int idNum))
+                    {
+                        if (idNum >= nodeCounter) nodeCounter = idNum + 1;
+                    }
+                }
+                await UpdateMermaidPreviewAsync();
+                _importDrawerOpen = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"JSON import failed: {ex.Message}");
+        }
     }
 
     private async Task CopyMermaidCodeToClipboard()
@@ -790,12 +851,14 @@
 
     private void OnNodeMouseDown(MouseEventArgs e, Node node)
     {
+        _ = containerRef.FocusAsync();
         if (e.Button == 1 || e.Button == 2) return; // Ignore middle and right clicks for dragging
         HandleNodeDown(e.ClientX, e.ClientY, e.ShiftKey, e.CtrlKey || e.MetaKey, node);
     }
 
     private void OnNodeTouchStart(TouchEventArgs e, Node node)
     {
+        _ = containerRef.FocusAsync();
         if (e.TargetTouches != null && e.TargetTouches.Length > 0)
         {
             var touch = e.TargetTouches[0];
@@ -934,7 +997,20 @@
 
     private void OnEdgeContextMenu(MouseEventArgs e, MermaidEditor.Models.Edge edge)
     {
-        selectedEdge = edge;
+        if (e.ShiftKey)
+        {
+            if (selectedEdges.Contains(edge)) selectedEdges.Remove(edge);
+            else selectedEdges.Add(edge);
+        }
+        else
+        {
+            selectedEdge = edge;
+            if (!selectedEdges.Contains(edge))
+            {
+                selectedEdges.Clear();
+                selectedEdges.Add(edge);
+            }
+        }
         selectedNode = null;
         contextMenuX = e.ClientX;
         contextMenuY = e.ClientY;
@@ -1059,11 +1135,20 @@
 
     private async Task OnKeyDown(KeyboardEventArgs e)
     {
+        if ((e.CtrlKey || e.MetaKey) && (e.Key == "a" || e.Key == "A"))
+        {
+            selectedNodes = new HashSet<Node>(graph.Nodes);
+            selectedEdges = new HashSet<MermaidEditor.Models.Edge>(graph.Edges);
+            await UpdateMermaidPreviewAsync();
+            return;
+        }
+
         if (e.Key == "Escape")
         {
             selectedNode = null;
             selectedEdge = null;
             selectedNodes.Clear();
+            selectedEdges.Clear();
             StateHasChanged();
             return;
         }
@@ -1071,19 +1156,42 @@
         if (e.Key == "Delete" || e.Key == "Backspace")
         {
             bool updated = false;
-            if (selectedNode != null && editingNodeId == null)
+            if (selectedNodes.Count > 0 && editingNodeId == null)
+            {
+                foreach (var node in selectedNodes.ToList())
+                {
+                    graph.Nodes.Remove(node);
+                    graph.Edges.RemoveAll(ed => ed.SourceNodeId == node.Id || ed.TargetNodeId == node.Id);
+                }
+                selectedNodes.Clear();
+                selectedNode = null;
+                updated = true;
+            }
+            else if (selectedNode != null && editingNodeId == null)
             {
                 graph.Nodes.Remove(selectedNode);
                 graph.Edges.RemoveAll(ed => ed.SourceNodeId == selectedNode.Id || ed.TargetNodeId == selectedNode.Id);
                 selectedNode = null;
                 updated = true;
             }
-            if (selectedEdge != null)
+
+            if (selectedEdges.Count > 0 && editingEdgeId == null)
+            {
+                foreach (var edge in selectedEdges.ToList())
+                {
+                    graph.Edges.Remove(edge);
+                }
+                selectedEdges.Clear();
+                selectedEdge = null;
+                updated = true;
+            }
+            else if (selectedEdge != null && editingEdgeId == null)
             {
                 graph.Edges.Remove(selectedEdge);
                 selectedEdge = null;
                 updated = true;
             }
+
             if (updated)
             {
                 await UpdateMermaidPreviewAsync();
@@ -1127,6 +1235,20 @@
                 if (node.X >= minX && node.X <= maxX && node.Y >= minY && node.Y <= maxY)
                 {
                     selectedNodes.Add(node);
+                }
+            }
+
+            foreach (var edge in graph.Edges)
+            {
+                var sourceNode = graph.Nodes.FirstOrDefault(n => n.Id == edge.SourceNodeId);
+                var targetNode = graph.Nodes.FirstOrDefault(n => n.Id == edge.TargetNodeId);
+                if (sourceNode != null && targetNode != null)
+                {
+                    if (sourceNode.X >= minX && sourceNode.X <= maxX && sourceNode.Y >= minY && sourceNode.Y <= maxY &&
+                        targetNode.X >= minX && targetNode.X <= maxX && targetNode.Y >= minY && targetNode.Y <= maxY)
+                    {
+                        selectedEdges.Add(edge);
+                    }
                 }
             }
             await UpdateMermaidPreviewAsync();
