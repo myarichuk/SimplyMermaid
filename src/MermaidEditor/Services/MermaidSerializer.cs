@@ -133,7 +133,7 @@ public static class MermaidSerializer
                 var target = selectedNodes.FirstOrDefault(n => n.Id == edge.TargetNodeId);
                 if (source != null && target != null)
                 {
-                    edgePositions[edge] = (source.Y + target.Y) / 2.0;
+                    edgePositions[edge] = edge.Y != 0 ? edge.Y : (source.Y + target.Y) / 2.0;
                 }
                 else
                 {
