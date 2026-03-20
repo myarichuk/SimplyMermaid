@@ -52,55 +52,83 @@ public static class MermaidSerializer
 {
     public static string Serialize(Graph graph)
     {
+        return SerializeSelection(graph, graph.Nodes, graph.Edges);
+    }
+
+    public static string SerializeSelection(Graph graph, IEnumerable<Node> selectedNodes, IEnumerable<Edge> selectedEdges)
+    {
         var sb = new StringBuilder();
-        sb.AppendLine("graph TD;");
 
-        foreach (var node in graph.Nodes)
+        if (graph.DiagramType == DiagramType.Flowchart)
         {
-            var label = string.IsNullOrWhiteSpace(node.Label) ? node.Id : node.Label;
-            var escapedLabel = label.EscapeMermaidText();
-            var nodeString = node.Type switch
-            {
-                NodeType.Rectangle => $"{node.Id}[{escapedLabel}]",
-                NodeType.RoundedRectangle => $"{node.Id}({escapedLabel})",
-                NodeType.Stadium => $"{node.Id}([{escapedLabel}])",
-                NodeType.Cylinder => $"{node.Id}[({escapedLabel})]",
-                NodeType.Circle => $"{node.Id}(({escapedLabel}))",
-                NodeType.Rhombus => $"{node.Id}{{{escapedLabel}}}",
-                NodeType.Hexagon => $"{node.Id}{{{{{escapedLabel}}}}}",
-                _ => $"{node.Id}[{escapedLabel}]"
-            };
-            sb.AppendLine($"    {nodeString};");
-        }
+            sb.AppendLine("graph TD;");
 
-        foreach (var edge in graph.Edges)
-        {
-            var arrow = edge.LineStyle switch
+            foreach (var node in selectedNodes)
             {
-                EdgeLineStyle.Dashed => "-.->",
-                EdgeLineStyle.Dotted => "-.->", // Mermaid uses dashed for both dotted and dashed
-                _ => "-->"
-            };
-
-            var line = edge.LineStyle switch
-            {
-                EdgeLineStyle.Dashed => "-.-",
-                EdgeLineStyle.Dotted => "-.-",
-                _ => "--"
-            };
-
-            if (string.IsNullOrWhiteSpace(edge.Label))
-            {
-                sb.AppendLine($"    {edge.SourceNodeId} {arrow} {edge.TargetNodeId};");
+                var label = string.IsNullOrWhiteSpace(node.Label) ? node.Id : node.Label;
+                var escapedLabel = label.EscapeMermaidText();
+                var nodeString = node.Type switch
+                {
+                    NodeType.Rectangle => $"{node.Id}[{escapedLabel}]",
+                    NodeType.RoundedRectangle => $"{node.Id}({escapedLabel})",
+                    NodeType.Stadium => $"{node.Id}([{escapedLabel}])",
+                    NodeType.Cylinder => $"{node.Id}[({escapedLabel})]",
+                    NodeType.Circle => $"{node.Id}(({escapedLabel}))",
+                    NodeType.Rhombus => $"{node.Id}{{{escapedLabel}}}",
+                    NodeType.Hexagon => $"{node.Id}{{{{{escapedLabel}}}}}",
+                    _ => $"{node.Id}[{escapedLabel}]"
+                };
+                sb.AppendLine($"    {nodeString};");
             }
-            else
+
+            foreach (var edge in selectedEdges)
             {
-                sb.AppendLine($"    {edge.SourceNodeId} {arrow}|{edge.Label.EscapeMermaidText()}| {edge.TargetNodeId};");
+                var arrow = edge.LineStyle switch
+                {
+                    EdgeLineStyle.Dashed => "-.->",
+                    EdgeLineStyle.Dotted => "-.->",
+                    _ => "-->"
+                };
+
+                if (string.IsNullOrWhiteSpace(edge.Label))
+                {
+                    sb.AppendLine($"    {edge.SourceNodeId} {arrow} {edge.TargetNodeId};");
+                }
+                else
+                {
+                    sb.AppendLine($"    {edge.SourceNodeId} {arrow}|{edge.Label.EscapeMermaidText()}| {edge.TargetNodeId};");
+                }
+            }
+        }
+        else if (graph.DiagramType == DiagramType.Sequence)
+        {
+            sb.AppendLine("sequenceDiagram");
+
+            foreach (var node in selectedNodes)
+            {
+                var label = string.IsNullOrWhiteSpace(node.Label) ? node.Id : node.Label;
+                var escapedLabel = label.EscapeMermaidText();
+                sb.AppendLine($"    participant {node.Id} as {escapedLabel}");
+            }
+
+            int edgeIndex = 1;
+            foreach (var edge in selectedEdges)
+            {
+                var arrow = edge.LineStyle switch
+                {
+                    EdgeLineStyle.Dashed => "-->>",
+                    EdgeLineStyle.Dotted => "-->>",
+                    _ => "->>"
+                };
+
+                var displayLabel = string.IsNullOrWhiteSpace(edge.Label) ? $"({edgeIndex})" : edge.Label;
+                sb.AppendLine($"    {edge.SourceNodeId}{arrow}{edge.TargetNodeId}: {displayLabel}");
+                edgeIndex++;
             }
         }
 
         var positions = new System.Collections.Generic.Dictionary<string, double[]>();
-        foreach (var node in graph.Nodes)
+        foreach (var node in selectedNodes)
         {
             positions[node.Id] = new double[] { node.X, node.Y };
         }
