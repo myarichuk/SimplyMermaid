@@ -104,26 +104,105 @@ public static class MermaidSerializer
         {
             sb.AppendLine("sequenceDiagram");
 
-            foreach (var node in selectedNodes)
+            foreach (var node in selectedNodes.Where(n => n.Type == NodeType.Actor || n.Type == NodeType.Rectangle))
             {
                 var label = string.IsNullOrWhiteSpace(node.Label) ? node.Id : node.Label;
                 var escapedLabel = label.EscapeMermaidText();
-                sb.AppendLine($"    participant {node.Id} as {escapedLabel}");
+                if (node.Type == NodeType.Actor)
+                {
+                    sb.AppendLine($"    actor {node.Id} as {escapedLabel}");
+                }
+                else
+                {
+                    sb.AppendLine($"    participant {node.Id} as {escapedLabel}");
+                }
             }
 
+            // Note: properly serializing Alt/Loop requires knowing what nodes are inside the fragment.
+            // For a basic implementation based on the prompt, we output them as standard sequence blocks
+            // or we just rely on the interactive visual canvas for drawing and don't deeply parse fragments yet,
+            // but let's try a simple block output.
+            var fragments = selectedNodes.Where(n => n.Type == NodeType.Fragment).ToList();
+
+            // We sort edges by Y coordinate to get the correct chronological order
+            var sortedEdges = selectedEdges.ToList();
+            var edgePositions = new Dictionary<Edge, double>();
+            foreach(var edge in sortedEdges)
+            {
+                var source = selectedNodes.FirstOrDefault(n => n.Id == edge.SourceNodeId);
+                var target = selectedNodes.FirstOrDefault(n => n.Id == edge.TargetNodeId);
+                if (source != null && target != null)
+                {
+                    edgePositions[edge] = (source.Y + target.Y) / 2.0;
+                }
+                else
+                {
+                    edgePositions[edge] = 0;
+                }
+            }
+            sortedEdges = sortedEdges.OrderBy(e => edgePositions[e]).ToList();
+
+            // To support fragments, we can see if an edge falls inside a fragment's bounding box
             int edgeIndex = 1;
-            foreach (var edge in selectedEdges)
+            var activeFragments = new List<Node>();
+
+            foreach (var edge in sortedEdges)
             {
                 var arrow = edge.LineStyle switch
                 {
                     EdgeLineStyle.Dashed => "-->>",
-                    EdgeLineStyle.Dotted => "-->>",
+                    EdgeLineStyle.Dotted => "-)", // Represents async in sequence diagram
                     _ => "->>"
                 };
 
                 var displayLabel = string.IsNullOrWhiteSpace(edge.Label) ? $"({edgeIndex})" : edge.Label;
+                var yPos = edgePositions[edge];
+
+                // Check if we need to close any active fragments
+                var fragmentsToClose = activeFragments.Where(f => yPos > (f.Y + f.Height/2)).ToList();
+                foreach (var f in fragmentsToClose)
+                {
+                    sb.AppendLine("    end");
+                    activeFragments.Remove(f);
+                }
+
+                // Check if we enter any new fragments
+                var enteringFragments = fragments.Where(f =>
+                    yPos >= (f.Y - f.Height/2) && yPos <= (f.Y + f.Height/2) && !activeFragments.Contains(f)).ToList();
+
+                foreach (var f in enteringFragments)
+                {
+                    var fragLabel = string.IsNullOrWhiteSpace(f.Label) ? "alt" : f.Label;
+
+                    // Simple logic: if label starts with loop or opt or alt, use that, else use rect
+                    if (fragLabel.StartsWith("loop", StringComparison.OrdinalIgnoreCase))
+                    {
+                        sb.AppendLine($"    loop {fragLabel.Substring(4).Trim()}");
+                    }
+                    else if (fragLabel.StartsWith("opt", StringComparison.OrdinalIgnoreCase))
+                    {
+                        sb.AppendLine($"    opt {fragLabel.Substring(3).Trim()}");
+                    }
+                    else if (fragLabel.StartsWith("alt", StringComparison.OrdinalIgnoreCase))
+                    {
+                        sb.AppendLine($"    alt {fragLabel.Substring(3).Trim()}");
+                    }
+                    else
+                    {
+                        sb.AppendLine($"    rect rgb(200, 200, 200)");
+                        sb.AppendLine($"    note right of {edge.SourceNodeId}: {fragLabel}");
+                    }
+                    activeFragments.Add(f);
+                }
+
                 sb.AppendLine($"    {edge.SourceNodeId}{arrow}{edge.TargetNodeId}: {displayLabel}");
                 edgeIndex++;
+            }
+
+            // Close any remaining open fragments
+            foreach (var f in activeFragments)
+            {
+                sb.AppendLine("    end");
             }
         }
 

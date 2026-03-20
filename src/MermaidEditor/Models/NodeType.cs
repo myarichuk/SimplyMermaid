@@ -8,5 +8,7 @@ public enum NodeType
     Cylinder,
     Circle,
     Rhombus,
-    Hexagon
+    Hexagon,
+    Actor,
+    Fragment
 }

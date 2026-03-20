@@ -39,13 +39,32 @@ html, body, #app {
     left: 50%;
     transform: translateX(-50%);
     z-index: 1000;
-    border-radius: 9999px; /* Pill shape */
+    border-radius: 16px; /* Pill shape */
     padding: 0.5rem 1rem;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     background-color: var(--mud-palette-surface);
     display: flex;
     gap: 0.5rem;
     align-items: center;
+}
+
+.shape-icon {
+    cursor: grab;
+    padding: 8px;
+    border-radius: 8px;
+    color: var(--mud-palette-text-primary);
+    transition: background-color 0.2s;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.shape-icon:hover {
+    background-color: var(--mud-palette-action-default-hover);
+}
+
+.shape-icon:active {
+    cursor: grabbing;
 }
 
 /* Remove defaults from inline inputs */
