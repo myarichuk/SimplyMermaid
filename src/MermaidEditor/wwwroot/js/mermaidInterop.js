@@ -14,7 +14,8 @@ window.mermaidInterop = {
                     tertiaryColor: '#e0e0e0'
                 },
                 flowchart: {
-                    curve: 'basis'
+                    curve: 'basis',
+                    htmlLabels: false
                 }
             });
             const element = document.getElementById(id);
@@ -73,6 +74,7 @@ window.mermaidInterop = {
         clonedSvg.setAttribute('width', width);
         clonedSvg.setAttribute('height', height);
         clonedSvg.setAttribute('viewBox', `${minX} ${minY} ${width} ${height}`);
+        clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
 
         const svgData = new XMLSerializer().serializeToString(clonedSvg);
         const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
