@@ -166,7 +166,10 @@
 
         @foreach (var node in graph.Nodes.Where(n => n.Type == NodeType.Actor || (n.Type == NodeType.Rectangle && graph.DiagramType == DiagramType.Sequence)))
         {
-            <line x1="@node.X" y1="@(node.Y + node.Height/2)" x2="@node.X" y2="@(node.Y + 2000)" stroke="var(--mud-palette-text-primary)" stroke-dasharray="4,4" stroke-width="2" style="pointer-events: none; opacity: 0.5;" />
+            <g style="cursor: crosshair;" @onmousedown="@(e => OnTimelineMouseDown(e, node))" @onmousedown:stopPropagation="true" @onmousedown:preventDefault="true" @ontouchstart="@(e => OnTimelineTouchStart(e, node))" @ontouchstart:stopPropagation="true" @ontouchstart:preventDefault="true">
+                <line x1="@node.X" y1="@(node.Y + node.Height/2)" x2="@node.X" y2="@(node.Y + 2000)" stroke="transparent" stroke-width="30" />
+                <line x1="@node.X" y1="@(node.Y + node.Height/2)" x2="@node.X" y2="@(node.Y + 2000)" stroke="var(--mud-palette-text-primary)" stroke-dasharray="4,4" stroke-width="2" style="pointer-events: none; opacity: 0.5;" />
+            </g>
         }
 
         <!-- Render edges -->
@@ -187,73 +190,90 @@
                     _ => "none"
                 };
 
-                // Create a slightly curved path for a sketchy look
-                var dx = target.X - source.X;
-                var dy = target.Y - source.Y;
-                var cx = source.X + dx / 2 + (dy * 0.1); // slight offset perpendicular to line
-                var cy = source.Y + dy / 2 - (dx * 0.1);
-                double targetXAdjusted = target.X;
-                double targetYAdjusted = target.Y;
-                if (dx != 0 || dy != 0)
-                {
-                    double halfWidth = target.Width / 2;
-                    double halfHeight = target.Height / 2;
+                string pathD = "";
+                double midX = 0;
+                double midY = 0;
 
-                    if (target.Type == NodeType.Circle)
+                if (graph.DiagramType == DiagramType.Sequence && (source.Type == NodeType.Actor || source.Type == NodeType.Rectangle) && (target.Type == NodeType.Actor || target.Type == NodeType.Rectangle))
+                {
+                    double targetXAdjusted = target.X;
+                    if (target.X > source.X) targetXAdjusted -= 8.0; // buffer distance
+                    else if (target.X < source.X) targetXAdjusted += 8.0;
+
+                    pathD = $"M {source.X} {edge.Y} L {targetXAdjusted} {edge.Y}";
+                    midX = (source.X + targetXAdjusted) / 2;
+                    midY = edge.Y - 10;
+                }
+                else
+                {
+                    // Create a slightly curved path for a sketchy look
+                    var dx = target.X - source.X;
+                    var dy = target.Y - source.Y;
+                    var cx = source.X + dx / 2 + (dy * 0.1); // slight offset perpendicular to line
+                    var cy = source.Y + dy / 2 - (dx * 0.1);
+                    double targetXAdjusted = target.X;
+                    double targetYAdjusted = target.Y;
+                    if (dx != 0 || dy != 0)
                     {
-                        double t = 1.0 / Math.Sqrt((dx * dx) / (halfWidth * halfWidth) + (dy * dy) / (halfHeight * halfHeight));
-                        targetXAdjusted = target.X - dx * t;
-                        targetYAdjusted = target.Y - dy * t;
-                    }
-                    else if (target.Type == NodeType.Rhombus)
-                    {
-                        double t = 1.0 / (Math.Abs(dx) / halfWidth + Math.Abs(dy) / halfHeight);
-                        targetXAdjusted = target.X - dx * t;
-                        targetYAdjusted = target.Y - dy * t;
-                    }
-                    else if (target.Type == NodeType.Hexagon)
-                    {
-                        double vx = Math.Abs(dx);
-                        double vy = Math.Abs(dy);
-                        double t1 = 1.0 / (vx / halfWidth + vy / target.Height);
-                        double t2 = vy > 0 ? halfHeight / vy : double.PositiveInfinity;
-                        double t = Math.Min(t1, t2);
-                        targetXAdjusted = target.X - dx * t;
-                        targetYAdjusted = target.Y - dy * t;
-                    }
-                    else
-                    {
-                        double absDx = Math.Abs(dx);
-                        double absDy = Math.Abs(dy);
-                        if (absDx * halfHeight > absDy * halfWidth)
+                        double halfWidth = target.Width / 2;
+                        double halfHeight = target.Height / 2;
+
+                        if (target.Type == NodeType.Circle)
                         {
-                            targetXAdjusted = target.X - Math.Sign(dx) * halfWidth;
-                            targetYAdjusted = target.Y - Math.Sign(dx) * halfWidth * dy / dx;
+                            double t = 1.0 / Math.Sqrt((dx * dx) / (halfWidth * halfWidth) + (dy * dy) / (halfHeight * halfHeight));
+                            targetXAdjusted = target.X - dx * t;
+                            targetYAdjusted = target.Y - dy * t;
+                        }
+                        else if (target.Type == NodeType.Rhombus)
+                        {
+                            double t = 1.0 / (Math.Abs(dx) / halfWidth + Math.Abs(dy) / halfHeight);
+                            targetXAdjusted = target.X - dx * t;
+                            targetYAdjusted = target.Y - dy * t;
+                        }
+                        else if (target.Type == NodeType.Hexagon)
+                        {
+                            double vx = Math.Abs(dx);
+                            double vy = Math.Abs(dy);
+                            double t1 = 1.0 / (vx / halfWidth + vy / target.Height);
+                            double t2 = vy > 0 ? halfHeight / vy : double.PositiveInfinity;
+                            double t = Math.Min(t1, t2);
+                            targetXAdjusted = target.X - dx * t;
+                            targetYAdjusted = target.Y - dy * t;
                         }
                         else
                         {
-                            targetYAdjusted = target.Y - Math.Sign(dy) * halfHeight;
-                            targetXAdjusted = target.X - Math.Sign(dy) * halfHeight * dx / dy;
+                            double absDx = Math.Abs(dx);
+                            double absDy = Math.Abs(dy);
+                            if (absDx * halfHeight > absDy * halfWidth)
+                            {
+                                targetXAdjusted = target.X - Math.Sign(dx) * halfWidth;
+                                targetYAdjusted = target.Y - Math.Sign(dx) * halfWidth * dy / dx;
+                            }
+                            else
+                            {
+                                targetYAdjusted = target.Y - Math.Sign(dy) * halfHeight;
+                                targetXAdjusted = target.X - Math.Sign(dy) * halfHeight * dx / dy;
+                            }
+                        }
+
+                        // Add buffer distance to prevent arrowhead from overlapping the node outline
+                        double bufferDistance = 8.0; // Arrowhead size + some margin
+                        double distToAdjusted = Math.Sqrt(Math.Pow(targetXAdjusted - cx, 2) + Math.Pow(targetYAdjusted - cy, 2));
+                        if (distToAdjusted > bufferDistance)
+                        {
+                            targetXAdjusted = targetXAdjusted - (targetXAdjusted - cx) * (bufferDistance / distToAdjusted);
+                            targetYAdjusted = targetYAdjusted - (targetYAdjusted - cy) * (bufferDistance / distToAdjusted);
                         }
                     }
+                    pathD = $"M {source.X} {source.Y} Q {cx} {cy} {targetXAdjusted} {targetYAdjusted}";
 
-                    // Add buffer distance to prevent arrowhead from overlapping the node outline
-                    double bufferDistance = 8.0; // Arrowhead size + some margin
-                    double distToAdjusted = Math.Sqrt(Math.Pow(targetXAdjusted - cx, 2) + Math.Pow(targetYAdjusted - cy, 2));
-                    if (distToAdjusted > bufferDistance)
-                    {
-                        targetXAdjusted = targetXAdjusted - (targetXAdjusted - cx) * (bufferDistance / distToAdjusted);
-                        targetYAdjusted = targetYAdjusted - (targetYAdjusted - cy) * (bufferDistance / distToAdjusted);
-                    }
+                    // Text positioning logic
+                    // Simple quadratic bezier curve midpoint formula:
+                    // B(t) = (1-t)^2 P0 + 2(1-t)t P1 + t^2 P2
+                    // At t=0.5: B(0.5) = 0.25 P0 + 0.5 P1 + 0.25 P2
+                    midX = 0.25 * source.X + 0.5 * cx + 0.25 * targetXAdjusted;
+                    midY = 0.25 * source.Y + 0.5 * cy + 0.25 * targetYAdjusted;
                 }
-                var pathD = $"M {source.X} {source.Y} Q {cx} {cy} {targetXAdjusted} {targetYAdjusted}";
-
-                // Text positioning logic
-                // Simple quadratic bezier curve midpoint formula:
-                // B(t) = (1-t)^2 P0 + 2(1-t)t P1 + t^2 P2
-                // At t=0.5: B(0.5) = 0.25 P0 + 0.5 P1 + 0.25 P2
-                double midX = 0.25 * source.X + 0.5 * cx + 0.25 * targetXAdjusted;
-                double midY = 0.25 * source.Y + 0.5 * cy + 0.25 * targetYAdjusted;
 
                 string displayLabel = string.IsNullOrEmpty(edge.Label) && graph.DiagramType == DiagramType.Sequence ? $"({edgeIndex})" : edge.Label;
 
@@ -295,14 +315,22 @@
         <!-- Render active connection line if drawing -->
         @if (isConnecting && activeSourceNode != null)
         {
-            var dx = mouseX - activeSourceNode.X;
-            var dy = mouseY - activeSourceNode.Y;
-            var cx = activeSourceNode.X + dx / 2 + (dy * 0.1);
-            var cy = activeSourceNode.Y + dy / 2 - (dx * 0.1);
-            var pathD = $"M {activeSourceNode.X} {activeSourceNode.Y} Q {cx} {cy} {mouseX} {mouseY}";
+            if (graph.DiagramType == DiagramType.Sequence)
+            {
+                <path d="M @(activeSourceNode.X) @(connectionY) L @(mouseX) @(connectionY)"
+                      stroke="var(--mud-palette-primary)" stroke-width="3" stroke-dasharray="8,8" fill="none" />
+            }
+            else
+            {
+                var dx = mouseX - activeSourceNode.X;
+                var dy = mouseY - activeSourceNode.Y;
+                var cx = activeSourceNode.X + dx / 2 + (dy * 0.1);
+                var cy = activeSourceNode.Y + dy / 2 - (dx * 0.1);
+                var pathD = $"M {activeSourceNode.X} {activeSourceNode.Y} Q {cx} {cy} {mouseX} {mouseY}";
 
-            <path d="@pathD"
-                  stroke="var(--mud-palette-primary)" stroke-width="3" stroke-dasharray="8,8" fill="none" />
+                <path d="@pathD"
+                      stroke="var(--mud-palette-primary)" stroke-width="3" stroke-dasharray="8,8" fill="none" />
+            }
         }
 
         @if (isLassoing)
@@ -1060,15 +1088,52 @@
         }
     }
 
+    private double connectionY;
+
+    private void OnTimelineMouseDown(MouseEventArgs e, Node node)
+    {
+        _ = containerRef.FocusAsync();
+        HandleTimelineDown(e.ClientX, e.ClientY, node);
+    }
+
+    private void OnTimelineTouchStart(TouchEventArgs e, Node node)
+    {
+        _ = containerRef.FocusAsync();
+        if (e.TargetTouches != null && e.TargetTouches.Length > 0)
+        {
+            var touch = e.TargetTouches[0];
+            HandleTimelineDown(touch.ClientX, touch.ClientY, node);
+        }
+    }
+
+    private void HandleTimelineDown(double clientX, double clientY, Node node)
+    {
+        if (graph.DiagramType == DiagramType.Sequence)
+        {
+            isConnecting = true;
+            activeSourceNode = node;
+            mouseX = node.X;
+            mouseY = (clientY - panY) / zoom;
+            connectionY = mouseY;
+        }
+    }
+
     private void HandleNodeDown(double clientX, double clientY, bool shiftKey, bool multiSelectKey, Node node)
     {
         if (shiftKey)
         {
+            if (graph.DiagramType == DiagramType.Sequence && (node.Type == NodeType.Actor || node.Type == NodeType.Rectangle))
+            {
+                // Disallow dragging connections from the sequence anchor nodes themselves
+                return;
+            }
+
             // Start connecting
             isConnecting = true;
             activeSourceNode = node;
             mouseX = node.X;
             mouseY = node.Y;
+            connectionY = mouseY;
         }
         else
         {
@@ -1453,10 +1518,7 @@
         // Sequence diagram snapping for lifelines
         if (draggingNode != null && (draggingNode.Type == NodeType.Actor || (draggingNode.Type == NodeType.Rectangle && graph.DiagramType == DiagramType.Sequence)))
         {
-            if (Math.Abs(draggingNode.Y - 100) < 50)
-            {
-                draggingNode.Y = 100;
-            }
+            draggingNode.Y = 100;
         }
 
         if (isLassoing)
@@ -1506,6 +1568,24 @@
 
         if (isConnecting)
         {
+            if (graph.DiagramType == DiagramType.Sequence && activeSourceNode != null)
+            {
+                var targetNode = graph.Nodes.FirstOrDefault(n => (n.Type == NodeType.Actor || n.Type == NodeType.Rectangle) && Math.Abs(n.X - mouseX) < 50 && n.Id != activeSourceNode.Id);
+                if (targetNode != null)
+                {
+                    CaptureState();
+                    graph.Edges.Add(new MermaidEditor.Models.Edge
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        SourceNodeId = activeSourceNode.Id,
+                        TargetNodeId = targetNode.Id,
+                        Label = "",
+                        Y = connectionY
+                    });
+                    await UpdateMermaidPreviewAsync();
+                    CommitState();
+                }
+            }
             isConnecting = false;
             activeSourceNode = null;
         }
