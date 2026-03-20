@@ -1,4 +1,4 @@
-# MermaidEditor
+# SimplyMermaid Editor
 
 **Note: this is a vibe coding experiment**
 
@@ -6,7 +6,10 @@ A proof-of-concept WYSIWYG Mermaid editor built with .NET 10 Blazor WebAssembly 
 
 ## Project Vision
 
-MermaidEditor aims to bridge the gap between text-based diagram generation and visual canvas editing. By using Blazor WASM, it allows developers to build robust C# graph models in the browser without needing a backend server, and it utilizes a thin JS interop layer to instantly render the result via Mermaid.js. The goal is to create a fully open-source, easily deployable standard tool for diagram building.
+SimplyMermaid aims to bridge the gap between text-based diagram generation and visual canvas editing. By using Blazor WASM, it allows developers to build robust C# graph models in the browser without needing a backend server, and it utilizes a thin JS interop layer to instantly render the result via Mermaid.js. The goal is to create a fully open-source, easily deployable standard tool for diagram building.
+
+![SimplyMermaid Editor Screenshot 1](placeholder-screenshot1.png)
+![SimplyMermaid Editor Screenshot 2](placeholder-screenshot2.png)
 
 ## Quick Start
 
@@ -35,24 +38,16 @@ To build and run via Docker:
    ```
 2. Open `http://localhost:8080` in your browser.
 
-### Features
-- **Add Nodes:** Click "Add Node" to dynamically create elements.
-- **Drag Nodes:** Click and drag nodes around the canvas freely.
-- **Connect Nodes:** Hold `Shift` and drag from one node to another to create directed edges.
-- **Live Preview:** Instant feedback via Mermaid.js SVG generation from C# state models.
+## Features
 
-## Development Roadmap
-
-- [x] Establish OSS scaffolding (CI/CD, semantic release).
-- [x] Build core Graph/Node/Edge C# data structures.
-- [x] Setup thin JS interop layer for Mermaid SVG injection.
-- [x] Basic HTML5/SVG canvas for viewing nodes and edges.
-- [x] Implement Drag & Drop interactivity.
-- [x] Implement Edge creation (Shift + Drag).
-- [ ] Add editable labels for Nodes and Edges.
-- [ ] Support advanced Mermaid flowchart geometries.
-- [ ] Add dark mode support.
-- [ ] Export to PNG/SVG feature.
+- **Interactive Canvas:** Free-form dragging, zooming, panning, and connecting nodes.
+- **Lasso Multi-Select:** Drag over empty space to multi-select and group-drag nodes and edges.
+- **Keyboard Shortcuts:** `Ctrl+A` to select all, `Delete/Backspace` to remove, `Escape` to cancel actions, and robust `Ctrl+Z` / `Ctrl+Y` Undo/Redo support.
+- **Import & Export:** Export cleanly formatted Mermaid markdown, JSON state, or high-quality transparent PNGs. Import Mermaid text or JSON easily via the side drawer.
+- **Position Round-Tripping:** Seamlessly preserves node positions in standard Mermaid comments during serialization.
+- **Sequence Diagram Support:** Toggle between Flowchart and Sequence diagrams with native participant and message rendering.
+- **Slick MudBlazor UI:** Clean, Excalidraw-inspired dark mode UI with intuitive tooltips, toolbar components, and helpful contextual hints.
+- **Throttled Render Queue:** 60fps interaction with debounced background synchronization to Mermaid.js.
 
 ## Contributing
 

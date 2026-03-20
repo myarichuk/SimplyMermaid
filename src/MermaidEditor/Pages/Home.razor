@@ -4,6 +4,7 @@
 @using Blazored.LocalStorage
 @inject MermaidJsInterop MermaidInterop
 @inject ILocalStorageService LocalStorage
+@inject IJSRuntime JS
 
 <PageTitle>Mermaid Editor</PageTitle>
 
@@ -11,63 +12,101 @@
          @ondragover:preventDefault="true" @ondrop="OnCanvasDrop">
 
     <!-- Sleek Floating Toolbar -->
-    <div class="floating-toolbar">
-        <MudIconButton Icon="@Icons.Material.Filled.Mouse" Color="Color.Primary" Variant="Variant.Outlined" title="Select / Lasso (Default)" />
-        <div style="width: 1px; height: 24px; background-color: var(--mud-palette-divider); margin: 0 8px;"></div>
-        <MudIconButton Icon="@Icons.Material.Filled.Clear" Color="Color.Error" OnClick="ClearGraph" title="Clear Canvas" />
-        <div style="width: 1px; height: 24px; background-color: var(--mud-palette-divider); margin: 0 8px;"></div>
-        <MudIconButton Icon="@Icons.Material.Filled.Remove" Color="Color.Default" OnClick="ZoomOut" title="Zoom Out" />
-        <div style="width: 100px; display: flex; align-items: center;" class="mx-2">
-            <MudSlider @bind-Value="zoom" Min="0.1" Max="5.0" Step="0.1" title="Zoom Slider" Size="Size.Small" Color="Color.Primary" />
-        </div>
-        <MudText Typo="Typo.body2" Class="mx-2" Style="min-width: 40px;">@(Math.Round(zoom * 100))%</MudText>
-        <MudIconButton Icon="@Icons.Material.Filled.Add" Color="Color.Default" OnClick="ZoomIn" title="Zoom In" />
-        <MudIconButton Icon="@Icons.Material.Filled.FilterCenterFocus" Color="Color.Default" OnClick="ResetZoomPan" title="Reset View" />
-        <div style="width: 1px; height: 24px; background-color: var(--mud-palette-divider); margin: 0 8px;"></div>
-        <MudIconButton Icon="@Icons.Material.Filled.Upload" Color="Color.Info" OnClick="ToggleImportDrawer" title="Import" />
-        <MudIconButton Icon="@Icons.Material.Filled.Download" Color="Color.Info" OnClick="ToggleExportDrawer" title="Export" />
-        <div style="width: 1px; height: 24px; background-color: var(--mud-palette-divider); margin: 0 8px;"></div>
-        <MudTooltip Text="Click and drag to move. Shift+Drag to connect. Double-click to edit text.">
-            <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" Color="Color.Secondary" Class="mx-2" />
-        </MudTooltip>
-    </div>
+    <div class="floating-toolbar px-4 py-2" style="width: auto; white-space: nowrap;">
+        <div class="d-flex align-center gap-2">
+            <MudText Typo="Typo.h6" Class="sketch-font mr-2" Style="color: var(--mud-palette-primary); font-weight: bold; pointer-events: none; user-select: none;">SimplyMermaid</MudText>
 
-    <!-- Left Toolbar for Nodes -->
-    <div class="floating-toolbar-left">
-        <div draggable="true" @ondragstart="@(e => OnDragStartShape(NodeType.Rectangle))" style="cursor: grab;">
-            <MudIconButton OnClick="@(() => AddNode(NodeType.Rectangle))" title="Rectangle">
-                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" style="pointer-events: none;"><rect x="3" y="6" width="18" height="12"></rect></svg>
-            </MudIconButton>
-        </div>
-        <div draggable="true" @ondragstart="@(e => OnDragStartShape(NodeType.RoundedRectangle))" style="cursor: grab;">
-            <MudIconButton OnClick="@(() => AddNode(NodeType.RoundedRectangle))" title="Rounded Rectangle">
-                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" style="pointer-events: none;"><rect x="3" y="6" width="18" height="12" rx="4"></rect></svg>
-            </MudIconButton>
-        </div>
-        <div draggable="true" @ondragstart="@(e => OnDragStartShape(NodeType.Stadium))" style="cursor: grab;">
-            <MudIconButton OnClick="@(() => AddNode(NodeType.Stadium))" title="Stadium">
-                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" style="pointer-events: none;"><rect x="3" y="6" width="18" height="12" rx="6"></rect></svg>
-            </MudIconButton>
-        </div>
-        <div draggable="true" @ondragstart="@(e => OnDragStartShape(NodeType.Cylinder))" style="cursor: grab;">
-            <MudIconButton OnClick="@(() => AddNode(NodeType.Cylinder))" title="Cylinder">
-                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" style="pointer-events: none;"><path d="M4 8c0-2.2 3.6-4 8-4s8 1.8 8 4v8c0 2.2-3.6 4-8 4s-8-1.8-8-4V8z"></path><path d="M4 8c0 2.2 3.6 4 8 4s8-1.8 8-4"></path></svg>
-            </MudIconButton>
-        </div>
-        <div draggable="true" @ondragstart="@(e => OnDragStartShape(NodeType.Circle))" style="cursor: grab;">
-            <MudIconButton OnClick="@(() => AddNode(NodeType.Circle))" title="Circle">
-                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" style="pointer-events: none;"><circle cx="12" cy="12" r="8"></circle></svg>
-            </MudIconButton>
-        </div>
-        <div draggable="true" @ondragstart="@(e => OnDragStartShape(NodeType.Rhombus))" style="cursor: grab;">
-            <MudIconButton OnClick="@(() => AddNode(NodeType.Rhombus))" title="Rhombus">
-                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" style="pointer-events: none;"><polygon points="12 3 21 12 12 21 3 12 12 3"></polygon></svg>
-            </MudIconButton>
-        </div>
-        <div draggable="true" @ondragstart="@(e => OnDragStartShape(NodeType.Hexagon))" style="cursor: grab;">
-            <MudIconButton OnClick="@(() => AddNode(NodeType.Hexagon))" title="Hexagon">
-                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" style="pointer-events: none;"><polygon points="12 2 21 7 21 17 12 22 3 17 3 7 12 2"></polygon></svg>
-            </MudIconButton>
+            <div style="width: 1px; height: 24px; background-color: var(--mud-palette-divider); margin: 0 4px;"></div>
+
+            <MudSelect T="DiagramType" Value="graph.DiagramType" ValueChanged="OnDiagramTypeChanged" Dense="true" Underline="false" Style="width: 120px;" Class="mt-0">
+                <MudSelectItem Value="DiagramType.Flowchart">Flowchart</MudSelectItem>
+                <MudSelectItem Value="DiagramType.Sequence">Sequence</MudSelectItem>
+            </MudSelect>
+
+            <div style="width: 1px; height: 24px; background-color: var(--mud-palette-divider); margin: 0 4px;"></div>
+
+            <MudTooltip Text="Select / Lasso (Default)">
+                <MudIconButton Icon="@Icons.Material.Filled.Mouse" Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small" />
+            </MudTooltip>
+
+            <div style="width: 1px; height: 24px; background-color: var(--mud-palette-divider); margin: 0 4px;"></div>
+
+            <MudTooltip Text="Undo (Ctrl+Z)">
+                <MudIconButton Icon="@Icons.Material.Filled.Undo" Color="Color.Default" OnClick="Undo" Disabled="@(commandManager.UndoStack.Count == 0)" Size="Size.Small" />
+            </MudTooltip>
+
+            <MudTooltip Text="Redo (Ctrl+Y)">
+                <MudIconButton Icon="@Icons.Material.Filled.Redo" Color="Color.Default" OnClick="Redo" Disabled="@(commandManager.RedoStack.Count == 0)" Size="Size.Small" />
+            </MudTooltip>
+
+            <div style="width: 1px; height: 24px; background-color: var(--mud-palette-divider); margin: 0 4px;"></div>
+
+            <MudTooltip Text="Clear Canvas">
+                <MudIconButton Icon="@Icons.Material.Filled.Clear" Color="Color.Error" OnClick="ClearGraph" Size="Size.Small" />
+            </MudTooltip>
+
+            <div style="width: 1px; height: 24px; background-color: var(--mud-palette-divider); margin: 0 4px;"></div>
+
+            <MudTooltip Text="Zoom Out">
+                <MudIconButton Icon="@Icons.Material.Filled.Remove" Color="Color.Default" OnClick="ZoomOut" Size="Size.Small" />
+            </MudTooltip>
+
+            <div style="width: 80px; display: flex; align-items: center;" class="mx-1">
+                <MudSlider @bind-Value="zoom" Min="0.1" Max="5.0" Step="0.1" Size="Size.Small" Color="Color.Primary" />
+            </div>
+
+            <MudText Typo="Typo.body2" Class="mx-1" Style="min-width: 40px;">@(Math.Round(zoom * 100))%</MudText>
+
+            <MudTooltip Text="Zoom In">
+                <MudIconButton Icon="@Icons.Material.Filled.Add" Color="Color.Default" OnClick="ZoomIn" Size="Size.Small" />
+            </MudTooltip>
+
+            <MudTooltip Text="Reset View">
+                <MudIconButton Icon="@Icons.Material.Filled.FilterCenterFocus" Color="Color.Default" OnClick="ResetZoomPan" Size="Size.Small" />
+            </MudTooltip>
+
+            <div style="width: 1px; height: 24px; background-color: var(--mud-palette-divider); margin: 0 4px;"></div>
+
+            <MudTooltip Text="Import">
+                <MudIconButton Icon="@Icons.Material.Filled.Upload" Color="Color.Info" OnClick="ToggleImportDrawer" Size="Size.Small" />
+            </MudTooltip>
+
+            <MudTooltip Text="Export">
+                <MudIconButton Icon="@Icons.Material.Filled.Download" Color="Color.Info" OnClick="ToggleExportDrawer" Size="Size.Small" />
+            </MudTooltip>
+
+            <div style="width: 1px; height: 24px; background-color: var(--mud-palette-divider); margin: 0 4px;"></div>
+
+            <MudMenu Icon="@Icons.Material.Filled.AddBox" Color="Color.Success" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter" Dense="true" Size="Size.Medium">
+                <ActivatorContent>
+                    <MudTooltip Text="Add Node">
+                        <MudIconButton Icon="@Icons.Material.Filled.AddBox" Color="Color.Success" Size="Size.Small" />
+                    </MudTooltip>
+                </ActivatorContent>
+                <ChildContent>
+                    <MudMenuItem OnClick="@(() => AddNode(NodeType.Rectangle))">
+                        <div class="d-flex align-center"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" class="mr-2"><rect x="3" y="6" width="18" height="12"></rect></svg> Rectangle</div>
+                    </MudMenuItem>
+                    <MudMenuItem OnClick="@(() => AddNode(NodeType.RoundedRectangle))">
+                        <div class="d-flex align-center"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" class="mr-2"><rect x="3" y="6" width="18" height="12" rx="4"></rect></svg> Rounded Rectangle</div>
+                    </MudMenuItem>
+                    <MudMenuItem OnClick="@(() => AddNode(NodeType.Stadium))">
+                        <div class="d-flex align-center"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" class="mr-2"><rect x="3" y="6" width="18" height="12" rx="6"></rect></svg> Stadium</div>
+                    </MudMenuItem>
+                    <MudMenuItem OnClick="@(() => AddNode(NodeType.Cylinder))">
+                        <div class="d-flex align-center"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" class="mr-2"><path d="M4 8c0-2.2 3.6-4 8-4s8 1.8 8 4v8c0 2.2-3.6 4-8 4s-8-1.8-8-4V8z"></path><path d="M4 8c0 2.2 3.6 4 8 4s8-1.8 8-4"></path></svg> Database</div>
+                    </MudMenuItem>
+                    <MudMenuItem OnClick="@(() => AddNode(NodeType.Circle))">
+                        <div class="d-flex align-center"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" class="mr-2"><circle cx="12" cy="12" r="8"></circle></svg> Circle</div>
+                    </MudMenuItem>
+                    <MudMenuItem OnClick="@(() => AddNode(NodeType.Rhombus))">
+                        <div class="d-flex align-center"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" class="mr-2"><polygon points="12 3 21 12 12 21 3 12 12 3"></polygon></svg> Rhombus</div>
+                    </MudMenuItem>
+                    <MudMenuItem OnClick="@(() => AddNode(NodeType.Hexagon))">
+                        <div class="d-flex align-center"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" class="mr-2"><polygon points="12 2 21 7 21 17 12 22 3 17 3 7 12 2"></polygon></svg> Hexagon</div>
+                    </MudMenuItem>
+                </ChildContent>
+            </MudMenu>
         </div>
     </div>
 
@@ -113,7 +152,18 @@
 
         <g transform="translate(@panX, @panY) scale(@zoom)">
 
+        @if (graph.DiagramType == DiagramType.Sequence)
+        {
+            @foreach (var node in graph.Nodes)
+            {
+                <line x1="@node.X" y1="@(node.Y + node.Height/2)" x2="@node.X" y2="@(node.Y + 2000)" stroke="var(--mud-palette-text-primary)" stroke-dasharray="4,4" stroke-width="2" style="pointer-events: none; opacity: 0.5;" />
+            }
+        }
+
         <!-- Render edges -->
+        @{
+            int edgeIndex = 1;
+        }
         @foreach (var edge in graph.Edges)
         {
             var source = graph.Nodes.FirstOrDefault(n => n.Id == edge.SourceNodeId);
@@ -196,6 +246,8 @@
                 double midX = 0.25 * source.X + 0.5 * cx + 0.25 * targetXAdjusted;
                 double midY = 0.25 * source.Y + 0.5 * cy + 0.25 * targetYAdjusted;
 
+                string displayLabel = string.IsNullOrEmpty(edge.Label) && graph.DiagramType == DiagramType.Sequence ? $"({edgeIndex})" : edge.Label;
+
                 <g style="cursor: pointer;" @onclick="@(e => OnEdgeClick(e, edge))" @oncontextmenu="@(e => OnEdgeContextMenu(e, edge))" @oncontextmenu:preventDefault="true" @oncontextmenu:stopPropagation="true" @ondblclick="@(() => EditEdge(edge))" @onclick:stopPropagation="true" @ontouchstart="@(e => OnEdgeTouchStart(e, edge))" @ontouchstart:stopPropagation="true" @ontouchstart:preventDefault="true">
                     <!-- Invisible thick path for easier clicking -->
                     <path d="@pathD" stroke="transparent" stroke-width="20" fill="none" />
@@ -207,10 +259,10 @@
                           fill="none"
                           marker-end="url(#arrowhead@(isSelected ? "-selected" : ""))" />
 
-                    @if (!string.IsNullOrEmpty(edge.Label) && editingEdgeId != edge.Id)
+                    @if (!string.IsNullOrEmpty(displayLabel) && editingEdgeId != edge.Id)
                     {
-                        <rect x="@(midX - edge.Label.Length * 4 - 8)" y="@(midY - 12)" width="@(edge.Label.Length * 8 + 16)" height="24" fill="var(--mud-palette-surface)" stroke="var(--mud-palette-text-primary)" stroke-width="1" rx="4" ry="4" style="pointer-events: none;" />
-                        <svg:text x="@midX" y="@(midY + 5)" text-anchor="middle" class="sketch-font" font-size="14" fill="var(--mud-palette-text-primary)" style="pointer-events: none;">@edge.Label</svg:text>
+                        <rect x="@(midX - displayLabel.Length * 4 - 8)" y="@(midY - 12)" width="@(displayLabel.Length * 8 + 16)" height="24" fill="var(--mud-palette-surface)" stroke="var(--mud-palette-text-primary)" stroke-width="1" rx="4" ry="4" style="pointer-events: none;" />
+                        <svg:text x="@midX" y="@(midY + 5)" text-anchor="middle" class="sketch-font" font-size="14" fill="var(--mud-palette-text-primary)" style="pointer-events: none;">@displayLabel</svg:text>
                     }
                     @if (editingEdgeId == edge.Id)
                     {
@@ -227,6 +279,7 @@
                         </foreignObject>
                     }
                 </g>
+                edgeIndex++;
             }
         }
 
@@ -360,7 +413,7 @@
     </svg>
 
     <div class="position-absolute bottom-0 start-50 translate-middle-x mb-4 text-center" style="z-index: 1000; pointer-events: none;">
-        <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary); background: var(--mud-palette-surface); padding: 4px 8px; border-radius: 4px; opacity: 0.8;">Drag empty space to multi-select nodes • Hold Shift + drag from node to create connection • Right-click node for options • Del to delete • Esc to cancel</MudText>
+        <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary); background: var(--mud-palette-surface); padding: 6px 12px; border-radius: 6px; opacity: 0.9; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">Drag empty space to lasso • Shift+drag from node to connect • Right-click for menu • Del to delete</MudText>
     </div>
 
     <!-- Import Drawer -->
@@ -402,10 +455,17 @@
         </MudPaper>
 
         <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="CopyMermaidCodeToClipboard" FullWidth="true" Class="mb-4">Copy Mermaid Code</MudButton>
-        <div class="d-flex justify-space-between mt-2">
+        <MudText Typo="Typo.subtitle2" Class="mb-2">Export Full Graph</MudText>
+        <div class="d-flex justify-space-between mt-2 mb-4">
             <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Download" OnClick="DownloadJson">JSON</MudButton>
             <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Download" OnClick="DownloadMarkdown">MD</MudButton>
             <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Image" OnClick="DownloadPng">PNG</MudButton>
+        </div>
+
+        <MudText Typo="Typo.subtitle2" Class="mb-2">Export Selected Only</MudText>
+        <div class="d-flex justify-space-between mt-2">
+            <MudButton Variant="Variant.Outlined" Color="Color.Warning" StartIcon="@Icons.Material.Filled.Download" OnClick="DownloadSelectedJson" Disabled="@(selectedNodes.Count == 0)">JSON</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Warning" StartIcon="@Icons.Material.Filled.Download" OnClick="DownloadSelectedMarkdown" Disabled="@(selectedNodes.Count == 0)">MD</MudButton>
         </div>
     </MudDrawer>
 </div>
@@ -422,6 +482,70 @@
     private string mermaidImportCode = "graph TD;";
 
     // State variables for interactions
+    private CommandManager commandManager = new CommandManager();
+    private string? _previousGraphState;
+
+    private async Task OnDiagramTypeChanged(DiagramType newType)
+    {
+        if (graph.DiagramType != newType)
+        {
+            if (graph.Nodes.Count > 0 || graph.Edges.Count > 0)
+            {
+                bool confirmed = await JS.InvokeAsync<bool>("confirm", "Switching diagram types will clear your current graph. Continue?");
+                if (!confirmed)
+                {
+                    return;
+                }
+            }
+
+            CaptureState();
+            graph = new Graph { DiagramType = newType };
+            nodeCounter = 1;
+            selectedNode = null;
+            selectedEdge = null;
+            selectedNodes.Clear();
+            selectedEdges.Clear();
+            await UpdateMermaidPreviewAsync();
+            CommitState();
+        }
+    }
+
+    private void CaptureState()
+    {
+        _previousGraphState = System.Text.Json.JsonSerializer.Serialize(graph);
+    }
+
+    private void CommitState()
+    {
+        if (_previousGraphState != null)
+        {
+            var currentState = System.Text.Json.JsonSerializer.Serialize(graph);
+            if (_previousGraphState != currentState)
+            {
+                var command = new SnapshotCommand(graph, _previousGraphState, currentState, async () =>
+                {
+                    selectedNode = null;
+                    selectedEdge = null;
+                    selectedNodes.Clear();
+                    selectedEdges.Clear();
+                    await UpdateMermaidPreviewAsync();
+                    StateHasChanged();
+                });
+                commandManager.ExecuteCommand(command);
+            }
+            _previousGraphState = null;
+        }
+    }
+
+    private void Undo()
+    {
+        commandManager.Undo();
+    }
+
+    private void Redo()
+    {
+        commandManager.Redo();
+    }
 
     // Zoom & Pan State
     private double zoom = 1.0;
@@ -447,6 +571,21 @@
     private async Task DownloadPng()
     {
         await MermaidInterop.DownloadSvgAsPngAsync("pretty-chart", "diagram.png");
+    }
+
+    private async Task DownloadSelectedJson()
+    {
+        var tempGraph = new Graph { DiagramType = graph.DiagramType };
+        tempGraph.Nodes.AddRange(selectedNodes);
+        tempGraph.Edges.AddRange(selectedEdges);
+        var json = System.Text.Json.JsonSerializer.Serialize(tempGraph, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        await MermaidInterop.DownloadTextAsync("diagram_selected.json", json);
+    }
+
+    private async Task DownloadSelectedMarkdown()
+    {
+        var mermaidSelected = MermaidSerializer.SerializeSelection(graph, selectedNodes, selectedEdges);
+        await MermaidInterop.DownloadTextAsync("diagram_selected.md", mermaidSelected);
     }
 
     private void OnSvgMouseDown(MouseEventArgs e)
@@ -615,6 +754,7 @@
             var importedGraph = await System.Text.Json.JsonSerializer.DeserializeAsync<Graph>(stream);
             if (importedGraph != null)
             {
+                CaptureState();
                 graph = importedGraph;
                 selectedNode = null;
                 selectedEdge = null;
@@ -630,6 +770,7 @@
                     }
                 }
                 await UpdateMermaidPreviewAsync();
+                CommitState();
                 _importDrawerOpen = false;
             }
         }
@@ -658,6 +799,7 @@
     {
         if (editingNodeId != null)
         {
+            CaptureState();
             var node = graph.Nodes.FirstOrDefault(n => n.Id == editingNodeId);
             if (node != null)
             {
@@ -681,6 +823,7 @@
                 await UpdateMermaidPreviewAsync();
             }
             editingNodeId = null;
+            CommitState();
         }
     }
 
@@ -756,6 +899,7 @@
     {
         if (editingEdgeId != null)
         {
+            CaptureState();
             var edge = graph.Edges.FirstOrDefault(e => e.Id == editingEdgeId);
             if (edge != null)
             {
@@ -763,6 +907,7 @@
                 await UpdateMermaidPreviewAsync();
             }
             editingEdgeId = null;
+            CommitState();
         }
     }
 
@@ -798,6 +943,7 @@
     {
         if (draggedShapeType.HasValue)
         {
+            CaptureState();
             var id = $"Node{nodeCounter}";
             double localX = (e.ClientX - panX) / zoom;
             double localY = (e.ClientY - panY) / zoom;
@@ -815,11 +961,13 @@
             nodeCounter++;
             draggedShapeType = null;
             await UpdateMermaidPreviewAsync();
+            CommitState();
         }
     }
 
     private async Task AddNode(NodeType type)
     {
+        CaptureState();
         var id = $"Node{nodeCounter}";
         // Add to roughly center of view
         double centerX = (400 - panX) / zoom;
@@ -840,13 +988,16 @@
         });
         nodeCounter++;
         await UpdateMermaidPreviewAsync();
+        CommitState();
     }
 
     private async Task ClearGraph()
     {
+        CaptureState();
         graph = new Graph();
         nodeCounter = 1;
         await UpdateMermaidPreviewAsync();
+        CommitState();
     }
 
     private void OnNodeMouseDown(MouseEventArgs e, Node node)
@@ -881,6 +1032,7 @@
         else
         {
             // Start dragging
+            CaptureState(); // Capture state before dragging starts
             draggingNode = node;
             double localX = (clientX - panX) / zoom;
             double localY = (clientY - panY) / zoom;
@@ -929,6 +1081,7 @@
             bool edgeExists = graph.Edges.Any(ed => ed.SourceNodeId == activeSourceNode.Id && ed.TargetNodeId == targetNode.Id);
             if (!edgeExists)
             {
+                CaptureState();
                 graph.Edges.Add(new MermaidEditor.Models.Edge
                 {
                     Id = Guid.NewGuid().ToString(),
@@ -937,13 +1090,18 @@
                     Label = ""
                 });
                 await UpdateMermaidPreviewAsync();
+                CommitState();
             }
         }
 
         // Reset state
         isConnecting = false;
         activeSourceNode = null;
-        draggingNode = null;
+        if (draggingNode != null)
+        {
+            draggingNode = null;
+            CommitState();
+        }
     }
 
     private void OnResizeMouseDown(MouseEventArgs e, Node node)
@@ -1127,10 +1285,12 @@
 
     private async Task DeleteNode(Node node)
     {
+        CaptureState();
         graph.Nodes.Remove(node);
         graph.Edges.RemoveAll(e => e.SourceNodeId == node.Id || e.TargetNodeId == node.Id);
         selectedNode = null;
         await UpdateMermaidPreviewAsync();
+        CommitState();
     }
 
     private async Task OnKeyDown(KeyboardEventArgs e)
@@ -1153,11 +1313,31 @@
             return;
         }
 
+        if ((e.CtrlKey || e.MetaKey) && (e.Key == "z" || e.Key == "Z"))
+        {
+            if (e.ShiftKey)
+            {
+                Redo();
+            }
+            else
+            {
+                Undo();
+            }
+            return;
+        }
+
+        if ((e.CtrlKey || e.MetaKey) && (e.Key == "y" || e.Key == "Y"))
+        {
+            Redo();
+            return;
+        }
+
         if (e.Key == "Delete" || e.Key == "Backspace")
         {
             bool updated = false;
             if (selectedNodes.Count > 0 && editingNodeId == null)
             {
+                CaptureState();
                 foreach (var node in selectedNodes.ToList())
                 {
                     graph.Nodes.Remove(node);
@@ -1169,6 +1349,7 @@
             }
             else if (selectedNode != null && editingNodeId == null)
             {
+                CaptureState();
                 graph.Nodes.Remove(selectedNode);
                 graph.Edges.RemoveAll(ed => ed.SourceNodeId == selectedNode.Id || ed.TargetNodeId == selectedNode.Id);
                 selectedNode = null;
@@ -1177,6 +1358,7 @@
 
             if (selectedEdges.Count > 0 && editingEdgeId == null)
             {
+                if (!updated) CaptureState();
                 foreach (var edge in selectedEdges.ToList())
                 {
                     graph.Edges.Remove(edge);
@@ -1187,6 +1369,7 @@
             }
             else if (selectedEdge != null && editingEdgeId == null)
             {
+                if (!updated) CaptureState();
                 graph.Edges.Remove(selectedEdge);
                 selectedEdge = null;
                 updated = true;
@@ -1195,21 +1378,26 @@
             if (updated)
             {
                 await UpdateMermaidPreviewAsync();
+                CommitState();
             }
         }
     }
 
     private async Task SetEdgeStyle(MermaidEditor.Models.Edge edge, EdgeLineStyle style)
     {
+        CaptureState();
         edge.LineStyle = style;
         await UpdateMermaidPreviewAsync();
+        CommitState();
     }
 
     private async Task DeleteEdge(MermaidEditor.Models.Edge edge)
     {
+        CaptureState();
         graph.Edges.Remove(edge);
         selectedEdge = null;
         await UpdateMermaidPreviewAsync();
+        CommitState();
     }
 
     private async Task OnMouseUp(MouseEventArgs e)
@@ -1425,11 +1613,13 @@
 
             if (newGraph.Nodes.Any())
             {
+                CaptureState();
                 graph = newGraph;
                 selectedNode = null;
                 selectedEdge = null;
                 selectedNodes.Clear();
                 await UpdateMermaidPreviewAsync();
+                CommitState();
             }
         }
         catch (Exception ex)
