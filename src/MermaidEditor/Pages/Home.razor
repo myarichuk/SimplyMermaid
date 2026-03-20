@@ -94,7 +94,7 @@
     }
 
     <!-- Full Screen Canvas -->
-    <svg class="graph-canvas w-100 h-100"
+    <svg id="pretty-chart" class="graph-canvas w-100 h-100"
          style="cursor: @(isPanning ? "grabbing" : "crosshair"); touch-action: none;"
          @onmousemove="OnMouseMove"
          @onmouseup="OnMouseUp"
@@ -446,7 +446,7 @@
 
     private async Task DownloadPng()
     {
-        await MermaidInterop.DownloadSvgAsPngAsync("mermaid-preview", "diagram.png");
+        await MermaidInterop.DownloadSvgAsPngAsync("pretty-chart", "diagram.png");
     }
 
     private void OnSvgMouseDown(MouseEventArgs e)

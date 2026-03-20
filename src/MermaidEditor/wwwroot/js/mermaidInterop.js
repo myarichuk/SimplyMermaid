@@ -56,11 +56,24 @@ window.mermaidInterop = {
     downloadSvgAsPng: function (svgId, filename) {
         const containerElement = document.getElementById(svgId);
         if (!containerElement) return;
-        const svgElement = containerElement.querySelector('svg');
+
+        let svgElement = containerElement.tagName.toLowerCase() === 'svg' ? containerElement : containerElement.querySelector('svg');
         if (!svgElement) return;
 
         let bbox = { x: 0, y: 0, width: 0, height: 0 };
-        try { bbox = svgElement.getBBox(); } catch (e) {}
+        try {
+            // If it's our pretty chart, get the BBox of the inner group to ignore pan/zoom viewport
+            if (svgId === 'pretty-chart') {
+                const innerG = svgElement.querySelector('g');
+                if (innerG) {
+                    bbox = innerG.getBBox();
+                } else {
+                    bbox = svgElement.getBBox();
+                }
+            } else {
+                bbox = svgElement.getBBox();
+            }
+        } catch (e) {}
 
         const padding = 20;
         const width = bbox.width + padding * 2;
@@ -71,10 +84,43 @@ window.mermaidInterop = {
         if (width <= padding * 2 || height <= padding * 2) return;
 
         const clonedSvg = svgElement.cloneNode(true);
+
+        // Remove transform from inner G so pan/zoom doesn't affect the image
+        if (svgId === 'pretty-chart') {
+            const innerG = clonedSvg.querySelector('g');
+            if (innerG) {
+                innerG.removeAttribute('transform');
+            }
+
+            // Remove foreign objects (like inline editors) to prevent tainted canvas errors
+            const foreignObjects = clonedSvg.querySelectorAll('foreignObject');
+            foreignObjects.forEach(fo => fo.remove());
+        }
+
         clonedSvg.setAttribute('width', width);
         clonedSvg.setAttribute('height', height);
         clonedSvg.setAttribute('viewBox', `${minX} ${minY} ${width} ${height}`);
         clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+
+        // Inject styles
+        const computedStyle = getComputedStyle(document.body);
+        const mudPaletteSurface = computedStyle.getPropertyValue('--mud-palette-surface').trim() || '#252526';
+        const mudPalettePrimary = computedStyle.getPropertyValue('--mud-palette-primary').trim() || '#569CD6';
+        const mudPalettePrimaryLighten = computedStyle.getPropertyValue('--mud-palette-primary-lighten').trim() || '#7cb4e0';
+        const mudPaletteTextPrimary = computedStyle.getPropertyValue('--mud-palette-text-primary').trim() || '#D4D4D4';
+
+        const style = document.createElement('style');
+        style.textContent = `
+            :root {
+                --mud-palette-surface: ${mudPaletteSurface};
+                --mud-palette-primary: ${mudPalettePrimary};
+                --mud-palette-primary-lighten: ${mudPalettePrimaryLighten};
+                --mud-palette-text-primary: ${mudPaletteTextPrimary};
+            }
+            .sketch-font { font-family: 'Caveat', cursive; }
+            svg { background-color: var(--mud-palette-surface); }
+        `;
+        clonedSvg.insertBefore(style, clonedSvg.firstChild);
 
         const svgData = new XMLSerializer().serializeToString(clonedSvg);
         const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
