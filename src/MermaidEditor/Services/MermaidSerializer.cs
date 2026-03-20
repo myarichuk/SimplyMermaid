@@ -55,15 +55,25 @@ public static class MermaidSerializer
         return SerializeSelection(graph, graph.Nodes, graph.Edges);
     }
 
-    public static string SerializeSelection(Graph graph, IEnumerable<Node> selectedNodes, IEnumerable<Edge> selectedEdges)
+    public static string SerializeSelection(Graph graph, IEnumerable<Node> selectedNodes, IEnumerable<Edge> selectedEdges, DiagramType? exportType = null)
     {
         var sb = new StringBuilder();
 
-        if (graph.DiagramType == DiagramType.Flowchart)
+        var actualExportType = exportType ?? graph.DiagramType;
+
+        var filteredNodes = actualExportType == DiagramType.Flowchart
+            ? selectedNodes.Where(n => !n.IsSequence)
+            : selectedNodes.Where(n => n.IsSequence);
+
+        var filteredEdges = actualExportType == DiagramType.Flowchart
+            ? selectedEdges.Where(e => !e.IsSequence)
+            : selectedEdges.Where(e => e.IsSequence);
+
+        if (actualExportType == DiagramType.Flowchart)
         {
             sb.AppendLine("graph TD;");
 
-            foreach (var node in selectedNodes)
+            foreach (var node in filteredNodes)
             {
                 var label = string.IsNullOrWhiteSpace(node.Label) ? node.Id : node.Label;
                 var escapedLabel = label.EscapeMermaidText();
@@ -81,7 +91,7 @@ public static class MermaidSerializer
                 sb.AppendLine($"    {nodeString};");
             }
 
-            foreach (var edge in selectedEdges)
+            foreach (var edge in filteredEdges)
             {
                 var arrow = edge.LineStyle switch
                 {
@@ -100,11 +110,11 @@ public static class MermaidSerializer
                 }
             }
         }
-        else if (graph.DiagramType == DiagramType.Sequence)
+        else if (actualExportType == DiagramType.Sequence)
         {
             sb.AppendLine("sequenceDiagram");
 
-            foreach (var node in selectedNodes.Where(n => n.Type == NodeType.Actor || n.Type == NodeType.Rectangle))
+            foreach (var node in filteredNodes.Where(n => n.Type == NodeType.Actor || n.Type == NodeType.Rectangle))
             {
                 var label = string.IsNullOrWhiteSpace(node.Label) ? node.Id : node.Label;
                 var escapedLabel = label.EscapeMermaidText();
@@ -122,15 +132,15 @@ public static class MermaidSerializer
             // For a basic implementation based on the prompt, we output them as standard sequence blocks
             // or we just rely on the interactive visual canvas for drawing and don't deeply parse fragments yet,
             // but let's try a simple block output.
-            var fragments = selectedNodes.Where(n => n.Type == NodeType.Fragment).ToList();
+            var fragments = filteredNodes.Where(n => n.Type == NodeType.Fragment).ToList();
 
             // We sort edges by Y coordinate to get the correct chronological order
-            var sortedEdges = selectedEdges.ToList();
+            var sortedEdges = filteredEdges.ToList();
             var edgePositions = new Dictionary<Edge, double>();
             foreach(var edge in sortedEdges)
             {
-                var source = selectedNodes.FirstOrDefault(n => n.Id == edge.SourceNodeId);
-                var target = selectedNodes.FirstOrDefault(n => n.Id == edge.TargetNodeId);
+                var source = filteredNodes.FirstOrDefault(n => n.Id == edge.SourceNodeId);
+                var target = filteredNodes.FirstOrDefault(n => n.Id == edge.TargetNodeId);
                 if (source != null && target != null)
                 {
                     edgePositions[edge] = edge.Y != 0 ? edge.Y : (source.Y + target.Y) / 2.0;
@@ -207,7 +217,7 @@ public static class MermaidSerializer
         }
 
         var positions = new System.Collections.Generic.Dictionary<string, double[]>();
-        foreach (var node in selectedNodes)
+        foreach (var node in filteredNodes)
         {
             positions[node.Id] = new double[] { node.X, node.Y };
         }

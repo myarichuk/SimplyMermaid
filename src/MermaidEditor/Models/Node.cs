@@ -9,4 +9,5 @@ public class Node
     public double Width { get; set; } = 120;
     public double Height { get; set; } = 60;
     public NodeType Type { get; set; } = NodeType.Rectangle;
+    public bool IsSequence { get; set; } = false;
 }
