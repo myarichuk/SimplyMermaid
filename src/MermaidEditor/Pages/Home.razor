@@ -8,8 +8,7 @@
 
 <PageTitle>Mermaid Editor</PageTitle>
 
-    <div class="editor-container canvas-background sketch-font w-100 h-100 position-relative" @onkeydown="OnKeyDown" tabindex="0" @ref="containerRef"
-         @ondragover:preventDefault="true" @ondrop="OnCanvasDrop">
+    <div class="editor-container canvas-background sketch-font w-100 h-100 position-relative" @onkeydown="OnKeyDown" tabindex="0" @ref="containerRef">
 
     <!-- Sleek Floating Toolbar -->
     <div class="floating-toolbar px-4 py-2" style="width: auto; white-space: nowrap;">
@@ -147,6 +146,7 @@
     <!-- Full Screen Canvas -->
     <svg id="pretty-chart" class="graph-canvas w-100 h-100"
          style="cursor: @(isPanning ? "grabbing" : "crosshair"); touch-action: none;"
+         @ondragover:preventDefault="true" @ondrop="OnCanvasDrop"
          @onmousemove="OnMouseMove"
          @onmouseup="OnMouseUp"
          @onmouseleave="OnMouseUp"
