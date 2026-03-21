@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "MermaidEditor",
+  "productName": "Simply Mermaid",
   "version": "0.1.0",
   "identifier": "com.mermaideditor.tauri",
   "build": {
@@ -13,9 +13,10 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "MermaidEditor",
+        "title": "Simply Mermaid",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "maximized": true
       }
     ],
     "security": {
