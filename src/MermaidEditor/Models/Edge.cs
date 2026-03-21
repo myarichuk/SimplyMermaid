@@ -8,4 +8,5 @@ public class Edge
     public string Label { get; set; } = string.Empty;
     public EdgeLineStyle LineStyle { get; set; } = EdgeLineStyle.Solid;
     public double Y { get; set; }
+    public bool IsSequence { get; set; } = false;
 }

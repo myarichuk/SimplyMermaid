@@ -164,7 +164,7 @@
 
         <g transform="translate(@panX, @panY) scale(@zoom)">
 
-        @foreach (var node in graph.Nodes.Where(n => n.Type == NodeType.Actor || (n.Type == NodeType.Rectangle && graph.DiagramType == DiagramType.Sequence)))
+        @foreach (var node in graph.Nodes.Where(n => n.Type == NodeType.Actor || (n.Type == NodeType.Rectangle && n.IsSequence)))
         {
             <g style="cursor: crosshair;" @onmousedown="@(e => OnTimelineMouseDown(e, node))" @onmousedown:stopPropagation="true" @onmousedown:preventDefault="true" @ontouchstart="@(e => OnTimelineTouchStart(e, node))" @ontouchstart:stopPropagation="true" @ontouchstart:preventDefault="true">
                 <line x1="@node.X" y1="@(node.Y + node.Height/2)" x2="@node.X" y2="@(node.Y + 2000)" stroke="transparent" stroke-width="30" />
@@ -194,7 +194,7 @@
                 double midX = 0;
                 double midY = 0;
 
-                if (graph.DiagramType == DiagramType.Sequence && (source.Type == NodeType.Actor || source.Type == NodeType.Rectangle) && (target.Type == NodeType.Actor || target.Type == NodeType.Rectangle))
+                if (edge.IsSequence && (source.Type == NodeType.Actor || source.Type == NodeType.Rectangle) && (target.Type == NodeType.Actor || target.Type == NodeType.Rectangle))
                 {
                     double targetXAdjusted = target.X;
                     if (target.X > source.X) targetXAdjusted -= 8.0; // buffer distance
@@ -315,7 +315,7 @@
         <!-- Render active connection line if drawing -->
         @if (isConnecting && activeSourceNode != null)
         {
-            if (graph.DiagramType == DiagramType.Sequence)
+            if (activeSourceNode.IsSequence)
             {
                 <path d="M @(activeSourceNode.X) @(connectionY) L @(mouseX) @(connectionY)"
                       stroke="var(--mud-palette-primary)" stroke-width="3" stroke-dasharray="8,8" fill="none" />
@@ -509,18 +509,35 @@
         <MudText Typo="Typo.subtitle2" Class="mb-2">Export Full Graph</MudText>
         <div class="d-flex justify-space-between mt-2 mb-4">
             <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Download" OnClick="DownloadJson">JSON</MudButton>
-            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Download" OnClick="DownloadMarkdown" Disabled="@HasMixedDiagramTypes()">MD</MudButton>
+            @if (HasMixedDiagramTypes())
+            {
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Download" OnClick="@(() => DownloadMarkdown(DiagramType.Flowchart))">MD (Flow)</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Download" OnClick="@(() => DownloadMarkdown(DiagramType.Sequence))">MD (Seq)</MudButton>
+            }
+            else
+            {
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Download" OnClick="@(() => DownloadMarkdown(graph.DiagramType))">MD</MudButton>
+            }
             <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Image" OnClick="DownloadPng">PNG</MudButton>
         </div>
         @if (HasMixedDiagramTypes())
         {
-            <MudText Typo="Typo.caption" Color="Color.Warning" Class="mb-4 d-block">Mixed diagram types detected. Full Markdown export disabled.</MudText>
+            <MudText Typo="Typo.caption" Color="Color.Warning" Class="mb-4 d-block">Mixed diagram types detected. Export them separately.</MudText>
         }
 
         <MudText Typo="Typo.subtitle2" Class="mb-2">Export Selected Only</MudText>
         <div class="d-flex justify-space-between mt-2">
             <MudButton Variant="Variant.Outlined" Color="Color.Warning" StartIcon="@Icons.Material.Filled.Download" OnClick="DownloadSelectedJson" Disabled="@(selectedNodes.Count == 0)">JSON</MudButton>
-            <MudButton Variant="Variant.Outlined" Color="Color.Warning" StartIcon="@Icons.Material.Filled.Download" OnClick="DownloadSelectedMarkdown" Disabled="@(selectedNodes.Count == 0)">MD</MudButton>
+            @if (HasMixedDiagramTypesInSelection())
+            {
+                <MudButton Variant="Variant.Outlined" Color="Color.Warning" StartIcon="@Icons.Material.Filled.Download" OnClick="@(() => DownloadSelectedMarkdown(DiagramType.Flowchart))">MD (Flow)</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Warning" StartIcon="@Icons.Material.Filled.Download" OnClick="@(() => DownloadSelectedMarkdown(DiagramType.Sequence))">MD (Seq)</MudButton>
+            }
+            else
+            {
+                var typeToExport = selectedNodes.Any(n => n.IsSequence) ? DiagramType.Sequence : DiagramType.Flowchart;
+                <MudButton Variant="Variant.Outlined" Color="Color.Warning" StartIcon="@Icons.Material.Filled.Download" OnClick="@(() => DownloadSelectedMarkdown(typeToExport))" Disabled="@(selectedNodes.Count == 0)">MD</MudButton>
+            }
         </div>
     </MudDrawer>
 </div>
@@ -555,18 +572,18 @@
 
     private bool HasMixedDiagramTypes()
     {
-        bool hasFlowchart = graph.Nodes.Any(n => n.Type != NodeType.Rectangle && n.Type != NodeType.Actor && n.Type != NodeType.Fragment) || graph.Edges.Any(); // simplifying edge check for now
-        bool hasSequence = graph.Nodes.Any(n => n.Type == NodeType.Actor || n.Type == NodeType.Fragment);
+        bool hasFlowchartNodes = graph.Nodes.Any(n => !n.IsSequence);
+        bool hasSequenceNodes = graph.Nodes.Any(n => n.IsSequence);
 
-        // This is a simple heuristic. A better approach is checking if any sequence-specific
-        // shapes exist alongside flowchart specific shapes, but we can just disable
-        // full export if it's explicitly mixed, or just rely on the user to use 'export selected'.
-        // Let's refine the logic:
-        bool hasFlowchartSpecificNodes = graph.Nodes.Any(n => n.Type is NodeType.RoundedRectangle or NodeType.Stadium or NodeType.Cylinder or NodeType.Circle or NodeType.Rhombus or NodeType.Hexagon);
-        bool hasSequenceSpecificNodes = graph.Nodes.Any(n => n.Type is NodeType.Actor or NodeType.Fragment);
+        return hasFlowchartNodes && hasSequenceNodes;
+    }
 
-        // Flowchart edges vs sequence edges might be harder to distinguish, but if shapes are mixed, it's mixed.
-        return hasFlowchartSpecificNodes && hasSequenceSpecificNodes;
+    private bool HasMixedDiagramTypesInSelection()
+    {
+        bool hasFlowchartNodes = selectedNodes.Any(n => !n.IsSequence);
+        bool hasSequenceNodes = selectedNodes.Any(n => n.IsSequence);
+
+        return hasFlowchartNodes && hasSequenceNodes;
     }
 
     private void CaptureState()
@@ -622,9 +639,10 @@
         await MermaidInterop.DownloadTextAsync("diagram.json", json);
     }
 
-    private async Task DownloadMarkdown()
+    private async Task DownloadMarkdown(DiagramType exportType)
     {
-        await MermaidInterop.DownloadTextAsync("diagram.md", mermaidCode);
+        var md = MermaidSerializer.SerializeSelection(graph, graph.Nodes, graph.Edges, exportType);
+        await MermaidInterop.DownloadTextAsync($"diagram_{exportType.ToString().ToLower()}.md", md);
     }
 
     private async Task DownloadPng()
@@ -641,9 +659,10 @@
         await MermaidInterop.DownloadTextAsync("diagram_selected.json", json);
     }
 
-    private async Task DownloadSelectedMarkdown()
+    private async Task DownloadSelectedMarkdown(DiagramType? exportType = null)
     {
-        var mermaidSelected = MermaidSerializer.SerializeSelection(graph, selectedNodes, selectedEdges);
+        var typeToExport = exportType ?? graph.DiagramType;
+        var mermaidSelected = MermaidSerializer.SerializeSelection(graph, selectedNodes, selectedEdges, typeToExport);
         await MermaidInterop.DownloadTextAsync("diagram_selected.md", mermaidSelected);
     }
 
@@ -833,11 +852,26 @@
                 nodeCounter = 1;
                 foreach (var node in graph.Nodes)
                 {
+                    if (graph.DiagramType == DiagramType.Sequence && !node.IsSequence)
+                    {
+                        // Backwards compatibility for older saves
+                        node.IsSequence = true;
+                    }
+
                     if (node.Id.StartsWith("Node") && int.TryParse(node.Id.Substring(4), out int idNum))
                     {
                         if (idNum >= nodeCounter) nodeCounter = idNum + 1;
                     }
                 }
+
+                foreach (var edge in graph.Edges)
+                {
+                    if (graph.DiagramType == DiagramType.Sequence && !edge.IsSequence)
+                    {
+                        edge.IsSequence = true;
+                    }
+                }
+
                 await UpdateMermaidPreviewAsync();
                 CommitState();
                 _importDrawerOpen = false;
@@ -988,11 +1022,26 @@
             graph = savedGraph;
             foreach (var node in graph.Nodes)
             {
+                if (graph.DiagramType == DiagramType.Sequence && !node.IsSequence)
+                {
+                    // Backwards compatibility for older saves
+                    node.IsSequence = true;
+                }
+
                 if (node.Id.StartsWith("Node") && int.TryParse(node.Id.Substring(4), out int idNum))
                 {
                     if (idNum >= nodeCounter) nodeCounter = idNum + 1;
                 }
             }
+
+            foreach (var edge in graph.Edges)
+            {
+                if (graph.DiagramType == DiagramType.Sequence && !edge.IsSequence)
+                {
+                    edge.IsSequence = true;
+                }
+            }
+
             await UpdateMermaidPreviewAsync();
         }
         else
@@ -1025,7 +1074,8 @@
                 Y = draggedShapeType.Value == NodeType.Actor || (draggedShapeType.Value == NodeType.Rectangle && graph.DiagramType == DiagramType.Sequence) ? 100 : localY,
                 Type = draggedShapeType.Value,
                 Width = draggedShapeType.Value == NodeType.Circle ? 80 : draggedShapeType.Value == NodeType.Fragment ? 300 : draggedShapeType.Value == NodeType.Actor ? 60 : 120,
-                Height = draggedShapeType.Value == NodeType.Circle ? 80 : draggedShapeType.Value == NodeType.Fragment ? 200 : draggedShapeType.Value == NodeType.Actor ? 100 : 60
+                Height = draggedShapeType.Value == NodeType.Circle ? 80 : draggedShapeType.Value == NodeType.Fragment ? 200 : draggedShapeType.Value == NodeType.Actor ? 100 : 60,
+                IsSequence = graph.DiagramType == DiagramType.Sequence
             });
             nodeCounter++;
             draggedShapeType = null;
@@ -1053,7 +1103,8 @@
             Y = type == NodeType.Actor || (type == NodeType.Rectangle && graph.DiagramType == DiagramType.Sequence) ? 100 : centerY + offsetY,
             Type = type,
             Width = type == NodeType.Circle ? 80 : type == NodeType.Fragment ? 300 : type == NodeType.Actor ? 60 : 120,
-            Height = type == NodeType.Circle ? 80 : type == NodeType.Fragment ? 200 : type == NodeType.Actor ? 100 : 60
+            Height = type == NodeType.Circle ? 80 : type == NodeType.Fragment ? 200 : type == NodeType.Actor ? 100 : 60,
+            IsSequence = graph.DiagramType == DiagramType.Sequence
         });
         nodeCounter++;
         await UpdateMermaidPreviewAsync();
@@ -1108,7 +1159,7 @@
 
     private void HandleTimelineDown(double clientX, double clientY, Node node)
     {
-        if (graph.DiagramType == DiagramType.Sequence)
+        if (node.IsSequence)
         {
             isConnecting = true;
             activeSourceNode = node;
@@ -1122,7 +1173,7 @@
     {
         if (shiftKey)
         {
-            if (graph.DiagramType == DiagramType.Sequence && (node.Type == NodeType.Actor || node.Type == NodeType.Rectangle))
+            if (node.IsSequence && (node.Type == NodeType.Actor || node.Type == NodeType.Rectangle))
             {
                 // Disallow dragging connections from the sequence anchor nodes themselves
                 return;
@@ -1193,7 +1244,8 @@
                     Id = Guid.NewGuid().ToString(),
                     SourceNodeId = activeSourceNode.Id,
                     TargetNodeId = targetNode.Id,
-                    Label = ""
+                    Label = "",
+                    IsSequence = activeSourceNode.IsSequence
                 });
                 await UpdateMermaidPreviewAsync();
                 CommitState();
@@ -1516,7 +1568,7 @@
         if (isPanning) isPanning = false;
 
         // Sequence diagram snapping for lifelines
-        if (draggingNode != null && (draggingNode.Type == NodeType.Actor || (draggingNode.Type == NodeType.Rectangle && graph.DiagramType == DiagramType.Sequence)))
+        if (draggingNode != null && draggingNode.IsSequence && (draggingNode.Type == NodeType.Actor || draggingNode.Type == NodeType.Rectangle))
         {
             draggingNode.Y = 100;
         }
@@ -1568,7 +1620,7 @@
 
         if (isConnecting)
         {
-            if (graph.DiagramType == DiagramType.Sequence && activeSourceNode != null)
+            if (activeSourceNode != null && activeSourceNode.IsSequence)
             {
                 var targetNode = graph.Nodes.FirstOrDefault(n => (n.Type == NodeType.Actor || n.Type == NodeType.Rectangle) && Math.Abs(n.X - mouseX) < 50 && n.Id != activeSourceNode.Id);
                 if (targetNode != null)
@@ -1580,7 +1632,8 @@
                         SourceNodeId = activeSourceNode.Id,
                         TargetNodeId = targetNode.Id,
                         Label = "",
-                        Y = connectionY
+                        Y = connectionY,
+                        IsSequence = true
                     });
                     await UpdateMermaidPreviewAsync();
                     CommitState();
@@ -1621,7 +1674,7 @@
             _isRendering = true;
             try
             {
-                mermaidCode = MermaidSerializer.Serialize(graph);
+                mermaidCode = MermaidSerializer.SerializeSelection(graph, graph.Nodes, graph.Edges, graph.DiagramType);
                 mermaidImportCode = mermaidCode;
                 await MermaidInterop.RenderMermaidAsync("mermaid-preview", mermaidCode);
                 await LocalStorage.SetItemAsync("mermaid_graph", graph);
@@ -1713,7 +1766,8 @@
                             Label = label,
                             Type = type,
                             Width = type == NodeType.Circle ? 80 : 120,
-                            Height = type == NodeType.Circle ? 80 : 60
+                            Height = type == NodeType.Circle ? 80 : 60,
+                            IsSequence = newGraph.DiagramType == DiagramType.Sequence
                         };
                     }
                 }
