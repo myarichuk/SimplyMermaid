@@ -464,8 +464,22 @@
     </svg>
 
     <div class="position-absolute bottom-0 start-50 translate-middle-x mb-4 text-center" style="z-index: 1000; pointer-events: none;">
-        <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary); background: var(--mud-palette-surface); padding: 6px 12px; border-radius: 6px; opacity: 0.9; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">Drag empty space to lasso • Shift+drag from node to connect • Right-click for menu • Del to delete</MudText>
+        <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary); background: var(--mud-palette-surface); padding: 6px 12px; border-radius: 6px; opacity: 0.9; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">Drag empty space to pan • Shift+drag to lasso • Shift+drag from node to connect • Right-click for menu • Del to delete</MudText>
     </div>
+
+    @if (ShowMinimap())
+    {
+        <div class="minimap-container" style="position: absolute; bottom: 1rem; right: 1rem; width: 150px; height: 100px; background: var(--mud-palette-surface); border: 1px solid var(--mud-palette-divider); border-radius: 4px; z-index: 1000; overflow: hidden; opacity: 0.8; pointer-events: none;">
+            <svg width="100%" height="100%" viewBox="@GetMinimapViewBox()">
+                @foreach (var node in graph.Nodes)
+                {
+                    <rect x="@(node.X - node.Width/2)" y="@(node.Y - node.Height/2)" width="@node.Width" height="@node.Height" fill="var(--mud-palette-text-secondary)" opacity="0.5" />
+                }
+                <!-- Viewport Indicator -->
+                <rect x="@GetViewportX()" y="@GetViewportY()" width="@GetViewportWidth()" height="@GetViewportHeight()" fill="none" stroke="var(--mud-palette-primary)" stroke-width="@(GetMinimapViewBoxWidth() / 50)" />
+            </svg>
+        </div>
+    }
 
     <!-- Import Drawer -->
     <MudDrawer @bind-Open="_importDrawerOpen" Anchor="Anchor.End" Elevation="1" Variant="@DrawerVariant.Temporary" Width="450px" Class="p-8" Style="z-index: 1001;" Overlay="false">
@@ -676,12 +690,13 @@
         {
              if (e.ShiftKey)
              {
-                 // Excalidraw-like panning on empty canvas with Shift + Left click
-                 HandleCanvasDown(e.ClientX, e.ClientY, false, true);
+                 // Lasso on empty canvas with Shift + Left click
+                 HandleCanvasDown(e.ClientX, e.ClientY, e.CtrlKey || e.MetaKey, false);
              }
              else
              {
-                 HandleCanvasDown(e.ClientX, e.ClientY, e.CtrlKey || e.MetaKey);
+                 // Excalidraw-like panning on empty canvas with Left click
+                 HandleCanvasDown(e.ClientX, e.ClientY, false, true);
              }
         }
         else if (e.Button == 1) // Middle mouse
@@ -723,9 +738,18 @@
         if (e.TargetTouches != null && e.TargetTouches.Length > 0 && draggingNode == null && !isConnecting)
         {
             var touch = e.TargetTouches[0];
-            // If multi-touch (e.g. 2 fingers), we can trigger panning
+            // If multi-touch (e.g. 2 fingers), we trigger panning.
+            // But we already made panning default for single touch on empty canvas too, matching left-click.
             bool isMultiTouch = e.TargetTouches.Length > 1;
-            HandleCanvasDown(touch.ClientX, touch.ClientY, false, e.ShiftKey || isMultiTouch);
+
+            if (e.ShiftKey)
+            {
+                HandleCanvasDown(touch.ClientX, touch.ClientY, false, false); // Lasso
+            }
+            else
+            {
+                HandleCanvasDown(touch.ClientX, touch.ClientY, false, true); // Pan
+            }
         }
     }
 
@@ -813,6 +837,106 @@
     private double resizeStartMouseX;
     private double resizeStartMouseY;
 
+    // Minimap
+    private double windowWidth = 1024;
+    private double windowHeight = 768;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                var dims = await JS.InvokeAsync<WindowDimensions>("mermaidInterop.getDimensions", "pretty-chart");
+                windowWidth = dims.Width;
+                windowHeight = dims.Height;
+                StateHasChanged();
+            }
+            catch { }
+        }
+    }
+
+    public class WindowDimensions
+    {
+        public double Width { get; set; }
+        public double Height { get; set; }
+    }
+
+    private bool ShowMinimap()
+    {
+        if (graph.Nodes.Count == 0) return false;
+
+        double minX = graph.Nodes.Min(n => n.X - n.Width / 2);
+        double maxX = graph.Nodes.Max(n => n.X + n.Width / 2);
+        double minY = graph.Nodes.Min(n => n.Y - n.Height / 2);
+        double maxY = graph.Nodes.Max(n => n.Y + n.Height / 2);
+
+        double graphWidth = maxX - minX;
+        double graphHeight = maxY - minY;
+
+        // Show minimap if graph bounds are larger than viewport, or heavily zoomed
+        return graphWidth * zoom > windowWidth || graphHeight * zoom > windowHeight || minX * zoom + panX < 0 || minY * zoom + panY < 0 || maxX * zoom + panX > windowWidth || maxY * zoom + panY > windowHeight;
+    }
+
+    private double minimapPadding = 100;
+
+    private string GetMinimapViewBox()
+    {
+        if (graph.Nodes.Count == 0) return "0 0 100 100";
+
+        double minX = graph.Nodes.Min(n => n.X - n.Width / 2) - minimapPadding;
+        double maxX = graph.Nodes.Max(n => n.X + n.Width / 2) + minimapPadding;
+        double minY = graph.Nodes.Min(n => n.Y - n.Height / 2) - minimapPadding;
+        double maxY = graph.Nodes.Max(n => n.Y + n.Height / 2) + minimapPadding;
+
+        // Also include the current viewport in the minimap bounds
+        double viewMinX = -panX / zoom;
+        double viewMaxX = (windowWidth - panX) / zoom;
+        double viewMinY = -panY / zoom;
+        double viewMaxY = (windowHeight - panY) / zoom;
+
+        minX = Math.Min(minX, viewMinX);
+        maxX = Math.Max(maxX, viewMaxX);
+        minY = Math.Min(minY, viewMinY);
+        maxY = Math.Max(maxY, viewMaxY);
+
+        double width = maxX - minX;
+        double height = maxY - minY;
+
+        // Ensure aspect ratio matches the 150x100 container
+        double targetAspect = 150.0 / 100.0;
+        double currentAspect = width / height;
+
+        if (currentAspect > targetAspect)
+        {
+            // Wider than target, increase height
+            double newHeight = width / targetAspect;
+            minY -= (newHeight - height) / 2;
+            height = newHeight;
+        }
+        else
+        {
+            // Taller than target, increase width
+            double newWidth = height * targetAspect;
+            minX -= (newWidth - width) / 2;
+            width = newWidth;
+        }
+
+        return $"{minX} {minY} {width} {height}";
+    }
+
+    private double GetMinimapViewBoxWidth()
+    {
+        if (graph.Nodes.Count == 0) return 100;
+        var parts = GetMinimapViewBox().Split(' ');
+        return double.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private double GetViewportX() => -panX / zoom;
+    private double GetViewportY() => -panY / zoom;
+    private double GetViewportWidth() => windowWidth / zoom;
+    private double GetViewportHeight() => windowHeight / zoom;
+
     // Export Drawer State
     private bool _exportDrawerOpen = false;
     private bool _importDrawerOpen = false;
@@ -852,23 +976,9 @@
                 nodeCounter = 1;
                 foreach (var node in graph.Nodes)
                 {
-                    if (graph.DiagramType == DiagramType.Sequence && !node.IsSequence)
-                    {
-                        // Backwards compatibility for older saves
-                        node.IsSequence = true;
-                    }
-
                     if (node.Id.StartsWith("Node") && int.TryParse(node.Id.Substring(4), out int idNum))
                     {
                         if (idNum >= nodeCounter) nodeCounter = idNum + 1;
-                    }
-                }
-
-                foreach (var edge in graph.Edges)
-                {
-                    if (graph.DiagramType == DiagramType.Sequence && !edge.IsSequence)
-                    {
-                        edge.IsSequence = true;
                     }
                 }
 
@@ -1022,23 +1132,9 @@
             graph = savedGraph;
             foreach (var node in graph.Nodes)
             {
-                if (graph.DiagramType == DiagramType.Sequence && !node.IsSequence)
-                {
-                    // Backwards compatibility for older saves
-                    node.IsSequence = true;
-                }
-
                 if (node.Id.StartsWith("Node") && int.TryParse(node.Id.Substring(4), out int idNum))
                 {
                     if (idNum >= nodeCounter) nodeCounter = idNum + 1;
-                }
-            }
-
-            foreach (var edge in graph.Edges)
-            {
-                if (graph.DiagramType == DiagramType.Sequence && !edge.IsSequence)
-                {
-                    edge.IsSequence = true;
                 }
             }
 
