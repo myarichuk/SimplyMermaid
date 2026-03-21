@@ -219,7 +219,7 @@ public static class MermaidSerializer
         var positions = new System.Collections.Generic.Dictionary<string, double[]>();
         foreach (var node in filteredNodes)
         {
-            positions[node.Id] = new double[] { node.X, node.Y };
+            positions[node.Id] = new double[] { node.X, node.Y, node.Width, node.Height, node.IsSequence ? 1.0 : 0.0 };
         }
         var positionsJson = System.Text.Json.JsonSerializer.Serialize(positions);
         sb.AppendLine($"\n%% SimplyMermaidPositions: {positionsJson}");

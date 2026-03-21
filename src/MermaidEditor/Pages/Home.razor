@@ -1879,6 +1879,12 @@
                 {
                     node.X = pos[0];
                     node.Y = pos[1];
+                    if (pos.Length >= 5)
+                    {
+                        node.Width = pos[2];
+                        node.Height = pos[3];
+                        node.IsSequence = pos[4] > 0.5;
+                    }
                 }
                 else
                 {
