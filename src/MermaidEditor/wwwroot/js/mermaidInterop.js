@@ -53,6 +53,13 @@ window.mermaidInterop = {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     },
+    getDimensions: function (id) {
+        const element = document.getElementById(id);
+        if (element) {
+            return { width: element.clientWidth, height: element.clientHeight };
+        }
+        return { width: window.innerWidth, height: window.innerHeight };
+    },
     downloadSvgAsPng: function (svgId, filename) {
         const containerElement = document.getElementById(svgId);
         if (!containerElement) return;
