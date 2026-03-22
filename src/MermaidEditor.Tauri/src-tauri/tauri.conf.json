@@ -16,7 +16,9 @@
         "title": "Simply Mermaid",
         "width": 800,
         "height": 600,
-        "maximized": true
+        "maximized": true,
+        "dragDropEnabled": false,
+        "zoomHotkeysEnabled": true
       }
     ],
     "security": {
