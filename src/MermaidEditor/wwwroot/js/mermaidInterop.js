@@ -1,4 +1,20 @@
 window.mermaidInterop = {
+    uploadJson: async function () {
+        if (window.__TAURI__) {
+            try {
+                const { open } = window.__TAURI__.dialog;
+                const { readTextFile } = window.__TAURI__.fs;
+                const filePath = await open({ filters: [{ name: 'JSON', extensions: ['json'] }] });
+                if (filePath) {
+                    const contents = await readTextFile(filePath);
+                    return contents;
+                }
+            } catch (err) {
+                console.error("Failed to open file in Tauri:", err);
+            }
+        }
+        return null;
+    },
     renderMermaid: async function (id, code) {
         try {
             mermaid.initialize({
@@ -42,7 +58,21 @@ window.mermaidInterop = {
         }
     },
 
-    downloadText: function (filename, text) {
+    downloadText: async function (filename, text) {
+        if (window.__TAURI__) {
+            try {
+                const { save } = window.__TAURI__.dialog;
+                const { writeTextFile } = window.__TAURI__.fs;
+                const filePath = await save({ defaultPath: filename });
+                if (filePath) {
+                    await writeTextFile(filePath, text);
+                }
+            } catch (err) {
+                console.error("Failed to save file in Tauri:", err);
+            }
+            return;
+        }
+
         const blob = new Blob([text], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -134,12 +164,35 @@ window.mermaidInterop = {
         const url = URL.createObjectURL(svgBlob);
 
         const img = new Image();
-        img.onload = function () {
+        img.onload = async function () {
             const canvas = document.createElement('canvas');
             canvas.width = width;
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0);
+
+            if (window.__TAURI__) {
+                try {
+                    const { save } = window.__TAURI__.dialog;
+                    const { writeFile } = window.__TAURI__.fs;
+                    const filePath = await save({ defaultPath: filename, filters: [{ name: 'Image', extensions: ['png'] }] });
+                    if (filePath) {
+                        const pngUrl = canvas.toDataURL('image/png');
+                        const base64Data = pngUrl.replace(/^data:image\/png;base64,/, "");
+                        const binary_string = window.atob(base64Data);
+                        const len = binary_string.length;
+                        const bytes = new Uint8Array(len);
+                        for (let i = 0; i < len; i++) {
+                            bytes[i] = binary_string.charCodeAt(i);
+                        }
+                        await writeFile(filePath, bytes);
+                    }
+                } catch (err) {
+                    console.error("Failed to save png in Tauri:", err);
+                }
+                URL.revokeObjectURL(url);
+                return;
+            }
 
             const pngUrl = canvas.toDataURL('image/png');
             const a = document.createElement('a');
