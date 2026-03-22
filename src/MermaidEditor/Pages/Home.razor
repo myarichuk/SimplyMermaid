@@ -491,11 +491,18 @@
 
         <MudText Typo="Typo.subtitle2" Class="mb-2">Upload JSON</MudText>
         <MudPaper Elevation="0" Class="p-4 mb-6 border-solid mud-border-lines-default rounded" Style="background-color: var(--mud-palette-surface);">
-            <MudFileUpload T="IBrowserFile" Accept=".json" FilesChanged="UploadJson" Class="mt-0">
-                <ActivatorContent>
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.CloudUpload" FullWidth="true">Upload JSON File</MudButton>
-                </ActivatorContent>
-            </MudFileUpload>
+            @if (_isTauri)
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.CloudUpload" FullWidth="true" OnClick="UploadJsonTauri">Upload JSON File</MudButton>
+            }
+            else
+            {
+                <MudFileUpload T="IBrowserFile" Accept=".json" FilesChanged="UploadJson" Class="mt-0">
+                    <ActivatorContent>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.CloudUpload" FullWidth="true">Upload JSON File</MudButton>
+                    </ActivatorContent>
+                </MudFileUpload>
+            }
         </MudPaper>
 
         <MudText Typo="Typo.subtitle2" Class="mb-2">Mermaid Source</MudText>
@@ -938,6 +945,7 @@
     private double GetViewportHeight() => windowHeight / zoom;
 
     // Export Drawer State
+    private bool _isTauri = false;
     private bool _exportDrawerOpen = false;
     private bool _importDrawerOpen = false;
 
@@ -955,6 +963,44 @@
     private void ToggleImportDrawer()
     {
         _importDrawerOpen = !_importDrawerOpen;
+    }
+
+    private async Task UploadJsonTauri()
+    {
+        try
+        {
+            var json = await MermaidInterop.UploadJsonAsync();
+            if (!string.IsNullOrEmpty(json))
+            {
+                var importedGraph = System.Text.Json.JsonSerializer.Deserialize<Graph>(json);
+                if (importedGraph != null)
+                {
+                    CaptureState();
+                    graph = importedGraph;
+                    selectedNode = null;
+                    selectedEdge = null;
+                    selectedNodes.Clear();
+                    selectedEdges.Clear();
+
+                    nodeCounter = 1;
+                    foreach (var node in graph.Nodes)
+                    {
+                        if (node.Id.StartsWith("Node") && int.TryParse(node.Id.Substring(4), out int idNum))
+                        {
+                            if (idNum >= nodeCounter) nodeCounter = idNum + 1;
+                        }
+                    }
+
+                    await UpdateMermaidPreviewAsync();
+                    CommitState();
+                    _importDrawerOpen = false;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"JSON import failed: {ex.Message}");
+        }
     }
 
     private async Task UploadJson(IBrowserFile file)
@@ -1126,6 +1172,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _isTauri = await MermaidInterop.IsTauriAsync();
+
         var savedGraph = await LocalStorage.GetItemAsync<Graph>("mermaid_graph");
         if (savedGraph != null && savedGraph.Nodes.Any())
         {

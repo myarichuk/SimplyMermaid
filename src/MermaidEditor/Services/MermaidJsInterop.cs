@@ -11,6 +11,16 @@ public class MermaidJsInterop : IAsyncDisposable
         _jsRuntime = jsRuntime;
     }
 
+    public async ValueTask<bool> IsTauriAsync()
+    {
+        return await _jsRuntime.InvokeAsync<bool>("eval", "window.__TAURI__ !== undefined");
+    }
+
+    public async ValueTask<string?> UploadJsonAsync()
+    {
+        return await _jsRuntime.InvokeAsync<string?>("mermaidInterop.uploadJson");
+    }
+
     public async ValueTask RenderMermaidAsync(string containerId, string mermaidCode)
     {
         await _jsRuntime.InvokeVoidAsync("mermaidInterop.renderMermaid", containerId, mermaidCode);
